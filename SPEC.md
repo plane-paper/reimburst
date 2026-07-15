@@ -227,7 +227,7 @@ Individual user scans receipt(s)
 ## 6. Repository Layout (DECIDED: polyglot monorepo)
 
 ```
-reimburse/
+reimburst/
   apps/
     web/                # Next.js frontend (TS)
     api/                # FastAPI backend (Python)
