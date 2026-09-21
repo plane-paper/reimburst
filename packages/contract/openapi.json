@@ -22,10 +22,131 @@
           }
         }
       }
+    },
+    "/receipts": {
+      "post": {
+        "tags": [
+          "receipts"
+        ],
+        "summary": "Create Receipt",
+        "operationId": "create_receipt_receipts_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_create_receipt_receipts_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptCreated"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/receipts/{receipt_id}": {
+      "get": {
+        "tags": [
+          "receipts"
+        ],
+        "summary": "Get Receipt",
+        "operationId": "get_receipt_receipts__receipt_id__get",
+        "parameters": [
+          {
+            "name": "receipt_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Receipt Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "Body_create_receipt_receipts_post": {
+        "properties": {
+          "image": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "Image",
+            "description": "Receipt image to extract"
+          }
+        },
+        "type": "object",
+        "required": [
+          "image"
+        ],
+        "title": "Body_create_receipt_receipts_post"
+      },
+      "ExtractionStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "processing",
+          "succeeded",
+          "failed"
+        ],
+        "title": "ExtractionStatus"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
       "HealthResponse": {
         "properties": {
           "status": {
@@ -38,6 +159,175 @@
           "status"
         ],
         "title": "HealthResponse"
+      },
+      "LineItemDetail": {
+        "properties": {
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "amount_cents": {
+            "type": "integer",
+            "title": "Amount Cents"
+          }
+        },
+        "type": "object",
+        "required": [
+          "description",
+          "amount_cents"
+        ],
+        "title": "LineItemDetail"
+      },
+      "ReceiptCreated": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "image_key": {
+            "type": "string",
+            "title": "Image Key"
+          },
+          "extraction_status": {
+            "$ref": "#/components/schemas/ExtractionStatus"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "image_key",
+          "extraction_status"
+        ],
+        "title": "ReceiptCreated"
+      },
+      "ReceiptDetail": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "image_key": {
+            "type": "string",
+            "title": "Image Key"
+          },
+          "extraction_status": {
+            "$ref": "#/components/schemas/ExtractionStatus"
+          },
+          "merchant": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merchant"
+          },
+          "total_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Cents"
+          },
+          "tax_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tax Cents"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "extraction_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extraction Error"
+          },
+          "line_items": {
+            "items": {
+              "$ref": "#/components/schemas/LineItemDetail"
+            },
+            "type": "array",
+            "title": "Line Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "image_key",
+          "extraction_status",
+          "merchant",
+          "total_cents",
+          "tax_cents",
+          "extraction_error",
+          "line_items"
+        ],
+        "title": "ReceiptDetail"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
       }
     }
   }

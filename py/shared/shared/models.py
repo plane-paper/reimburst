@@ -4,7 +4,13 @@ from typing import Any
 from sqlalchemy import JSON, Date, DateTime, Enum, ForeignKey, String, Text, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-from shared.enums import OutboundRequestStatus, PayoutStatus, RequestStatus, UserRole
+from shared.enums import (
+    ExtractionStatus,
+    OutboundRequestStatus,
+    PayoutStatus,
+    RequestStatus,
+    UserRole,
+)
 
 
 class Base(DeclarativeBase):
@@ -68,8 +74,15 @@ class Receipt(Base):
     raw_extraction: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     merchant: Mapped[str | None] = mapped_column(String(255))
     date: Mapped[dt.date | None] = mapped_column(Date)
+    currency: Mapped[str | None] = mapped_column(String(3))
     total_cents: Mapped[int | None] = mapped_column()
     tax_cents: Mapped[int | None] = mapped_column()
+    extraction_status: Mapped[ExtractionStatus] = mapped_column(
+        Enum(ExtractionStatus, name="extraction_status", native_enum=True),
+        default=ExtractionStatus.PENDING,
+        server_default=ExtractionStatus.PENDING.value,
+    )
+    extraction_error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

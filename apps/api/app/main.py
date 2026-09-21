@@ -4,6 +4,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from app.receipts import router as receipts_router
+
 app = FastAPI(title="Reimburse API")
 
 _cors_origins = os.environ.get("CORS_ORIGINS", "http://localhost:3000")
@@ -22,3 +24,6 @@ class HealthResponse(BaseModel):
 @app.get("/health")
 def health() -> HealthResponse:
     return HealthResponse(status="ok")
+
+
+app.include_router(receipts_router)

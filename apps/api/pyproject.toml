@@ -9,13 +9,15 @@ dependencies = [
     "sqlalchemy>=2.0.51",
     "alembic>=1.18",
     "asyncpg>=0.30",
+    "arq>=0.28",
+    "python-multipart>=0.0.20",
     "shared",
 ]
 
 [dependency-groups]
 dev = [
     "pytest>=8.4",
-    "httpx2>=2.7",
+    "httpx>=0.28",
     "mypy>=1.14",
     "ruff>=0.15",
 ]

@@ -26,3 +26,10 @@ class PayoutStatus(enum.StrEnum):
     PENDING = "pending"
     SUCCEEDED = "succeeded"
     FAILED = "failed"
+
+
+class ExtractionStatus(enum.StrEnum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
