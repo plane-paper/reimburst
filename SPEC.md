@@ -227,7 +227,7 @@ Individual user scans receipt(s)
 ## 6. Repository Layout (DECIDED: polyglot monorepo)
 
 ```
-reimburse/
+reimburst/
   apps/
     web/                # Next.js frontend (TS)
     api/                # FastAPI backend (Python)
@@ -269,8 +269,8 @@ All monetary columns are integer cents. `status` and `role` are enums. Receipts 
 
 | Phase | Name | Scope | Est. (part-time) |
 |---|---|---|---|
-| **P0** | Foundations | Monorepo, FastAPI + Next.js scaffold, Postgres schema, OpenAPI→TS codegen, CI, deployed "hello world" on both hosts | 1–2 weeks |
-| **P1** | Core extraction | Receipt upload → object storage → async OCR job → structured breakdown persisted & displayed. `OcrProvider` (cloud default). *(`FR-OCR-*`)* | 2–3 weeks |
+| **P0** | Foundations | **Complete (2026-09-21):** monorepo, FastAPI + Next.js scaffold, Postgres schema and initial migration, OpenAPI→TS codegen, CI, and container deployment configuration. Hosted reachability has not been independently verified from this checkout. | 1–2 weeks |
+| **P1** | Core extraction | **In progress (2026-09-21):** receipt upload → object storage → async OCR job → structured breakdown persisted & displayed. `OcrProvider` (cloud default). *(`FR-OCR-*`)* | 2–3 weeks |
 | **P2** | Categorization + editable confirmation | LLM categorization to taxonomy; editable review UI; reconciliation gate. *(`FR-CAT-*`, `FR-CONF-*`)* | 1–2 weeks |
 | **P3** | Individual mode | Personal spending history, spending reports + CSV/PDF export, item selection, LLM synopsis + outbound request artifact (email/PDF) with edit/download. Self-contained; needs no approver or payroll. *(`FR-IND-*`, `FR-SYN-*`, `FR-FE-IND`)* | 2–3 weeks |
 | **P4** | Org workflow | State machine, approver view, synopsis in org context, audit log on transitions. *(`FR-WF-*`, `FR-SYN-*`, `FR-FE-ORG`)* | 2–3 weeks |

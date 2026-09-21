@@ -1,0 +1,15 @@
+{
+  "name": "reimburse",
+  "private": true,
+  "packageManager": "pnpm@11.13.0",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "contract:generate": "uv run --package api python apps/api/scripts/export_openapi.py && pnpm --filter @reimburse/contract generate"
+  },
+  "devDependencies": {
+    "turbo": "^2.10.5"
+  }
+}

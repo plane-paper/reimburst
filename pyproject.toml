@@ -1,0 +1,15 @@
+[tool.uv.workspace]
+members = ["apps/api", "apps/worker", "py/shared"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+extend-exclude = ["**/alembic/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+exclude = ["alembic/versions"]
