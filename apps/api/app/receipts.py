@@ -9,7 +9,7 @@ from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel
 from shared.enums import ExtractionStatus, UserRole
 from shared.models import LineItem, Receipt, User
-from shared.storage import LocalObjectStorage, ObjectStorage
+from shared.storage import ObjectStorage, object_storage_from_environment
 from sqlalchemy import select
 
 from app.database import session_factory
@@ -44,7 +44,8 @@ class ReceiptDetail(ReceiptCreated):
 
 
 def object_storage(request: Request) -> ObjectStorage:
-    return getattr(request.app.state, "object_storage", LocalObjectStorage.from_environment())
+    storage: ObjectStorage | None = getattr(request.app.state, "object_storage", None)
+    return storage if storage is not None else object_storage_from_environment()
 
 
 async def development_owner_id() -> int:

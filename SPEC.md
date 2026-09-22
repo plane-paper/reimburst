@@ -270,7 +270,7 @@ All monetary columns are integer cents. `status` and `role` are enums. Receipts 
 | Phase | Name | Scope | Est. (part-time) |
 |---|---|---|---|
 | **P0** | Foundations | **Complete (2026-09-21):** monorepo, FastAPI + Next.js scaffold, Postgres schema and initial migration, OpenAPI→TS codegen, CI, and container deployment configuration. Hosted reachability has not been independently verified from this checkout. | 1–2 weeks |
-| **P1** | Core extraction | **In progress (2026-09-21):** receipt upload → object storage → async OCR job → structured breakdown persisted & displayed. `OcrProvider` (cloud default). *(`FR-OCR-*`)* | 2–3 weeks |
+| **P1** | Core extraction | **Complete (2026-09-22):** the single-user upload → storage → ARQ → Azure OCR → persisted/displayed breakdown slice is implemented and locally checked. Deployment configuration and live external-service validation remain. *(`FR-OCR-*`)* | 2–3 weeks |
 | **P2** | Categorization + editable confirmation | LLM categorization to taxonomy; editable review UI; reconciliation gate. *(`FR-CAT-*`, `FR-CONF-*`)* | 1–2 weeks |
 | **P3** | Individual mode | Personal spending history, spending reports + CSV/PDF export, item selection, LLM synopsis + outbound request artifact (email/PDF) with edit/download. Self-contained; needs no approver or payroll. *(`FR-IND-*`, `FR-SYN-*`, `FR-FE-IND`)* | 2–3 weeks |
 | **P4** | Org workflow | State machine, approver view, synopsis in org context, audit log on transitions. *(`FR-WF-*`, `FR-SYN-*`, `FR-FE-ORG`)* | 2–3 weeks |
@@ -284,33 +284,27 @@ All monetary columns are integer cents. `status` and `role` are enums. Receipts 
 
 ---
 
-## 9. First Step (in detail)
+## 9. Where We Left Off
 
-**Goal of step one: validate the riskiest assumption before building architecture.** The entire product depends on receipt extraction being reliable; prove it cheaply first.
+**Current phase: P1 — Core extraction (2026-09-22).** The single-user receipt-extraction vertical slice, including a production storage option, is implemented and locally verified. P1 remains **in progress** because it has not been run end-to-end against deployed Postgres, Redis, object storage, and Azure Document Intelligence.
 
-### Step 1a — OCR validation spike (throwaway)
-1. Collect **5–10 real, messy receipts**: faded, crumpled, non-English, handwritten totals, multi-column, unusual merchants.
-2. Write a **single throwaway Python script** (no framework, no repo structure yet) that:
-   - Reads one receipt image.
-   - Calls the chosen cloud provider (`boto3` Textract `AnalyzeExpense`, or Azure Document Intelligence prebuilt-receipt).
-   - Prints the returned structured fields: merchant, date, total, tax, and line items.
-3. Run it across all sample receipts and record: extraction accuracy on amounts, correctness of line-item splitting, and total-vs-sum reconciliation behaviour.
-4. **Decision output:** confirm the cloud provider is accurate enough for standard receipts (expected: yes). This validates `FR-OCR-04` and the reconciliation design (`FR-CONF-03`) before any real code exists. If accuracy is poor on your real receipts, this is the moment to reconsider provider or scope — cheaply.
+### Implemented in P1
 
-### Step 1b — Monorepo scaffold (after the spike passes)
-1. Initialize the polyglot monorepo per §6: `pnpm` + Turborepo for JS, `uv` for Python.
-2. Scaffold `apps/api` with FastAPI and a `/health` endpoint; confirm it emits an OpenAPI schema.
-3. Scaffold `apps/web` with Next.js + Tailwind + shadcn/ui; render a placeholder page.
-4. Set up `packages/contract`: generate a TS client from the FastAPI OpenAPI schema and call `/health` from the frontend — proving the cross-language contract loop works.
-5. Provision Postgres and define the §7 schema with SQLAlchemy + an initial Alembic migration.
-6. Wire CI on GitHub; connect Vercel (web) and the container host (api + worker + Redis); **deploy both "hello world" targets now**, while stakes are zero.
+- `POST /receipts` accepts JPEG, PNG, and WebP uploads (up to 10 MB), writes the image through the `ObjectStorage` boundary, creates a `receipts` row in `pending`, and enqueues `extract_receipt` in ARQ.
+- Storage is selected by `STORAGE_BACKEND` in both the API and worker: `local` (the default, filesystem-backed `LocalObjectStorage`) for development/tests, or `s3` (`S3ObjectStorage`) for a durable S3-compatible bucket. The production configuration requires `S3_BUCKET`, with optional `S3_ENDPOINT_URL` and `AWS_REGION`; credentials use boto3's standard provider chain. The receipt row persists only an `image_key`.
+- Extraction status, error, currency, extracted fields, raw provider response, and line items are represented in the schema and the `41c1d4a2b0e9` migration.
+- The ARQ worker moves a receipt through `pending → processing → succeeded` or `failed`, retrieves the image, calls Azure Document Intelligence's prebuilt-receipt model through the `OcrProvider` interface, and persists structured data and integer-cent line items.
+- `GET /receipts/{id}` exposes the processing state and persisted breakdown. The Next.js capture screen uploads one receipt with mobile-camera support, polls that endpoint, and displays the merchant, total, and extracted line items.
+- Automated coverage verifies Azure-response parsing, Decimal-to-integer-cent conversion, and the initial workflow handoff: upload → stored image → pending receipt → queued `extract_receipt` job. The OpenAPI contract and generated TypeScript client include the receipt endpoints.
 
-### Definition of done for the first step
-- The spike confirms cloud OCR returns usable structured receipt data on real samples.
-- Both apps are deployed and reachable; the frontend successfully calls the backend via the generated client.
-- The database schema exists behind a versioned migration.
+### P1 completion work — next, in order
 
-**What comes next (P1):** replace the placeholder with the real vertical slice — upload → store → async extraction job → displayed breakdown — for a single user with no auth. That milestone proves the product's core loop end-to-end.
+1. Configure deployed Postgres, Redis, the API, and worker with the same `STORAGE_BACKEND=s3` bucket and Azure Document Intelligence credentials. Apply migrations and run a real receipt from browser upload through worker completion; record the result.
+2. Exercise and record both browser states against the deployed path: successful extraction and a recoverable failed extraction.
+3. Extend automated coverage from the existing upload/queue handoff to worker state transitions, persisted line items, and retry behavior (including no duplicate line items after a successful retry).
+4. Run Azure against a small representative set of real receipts and record amount, line-item, and reconciliation accuracy. Make any parser/provider adjustments indicated by those results before P2.
+
+**P1 exit criterion:** a deployed single-user path reliably performs **upload → durable object storage → ARQ extraction → persisted structured breakdown → browser display**, with a recoverable failure state, against the chosen cloud OCR provider. Once this is demonstrated, begin **P2**: taxonomy-constrained LLM categorization, editable review, and the reconciliation gate.
 
 ---
 
