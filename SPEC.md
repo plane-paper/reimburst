@@ -270,7 +270,7 @@ All monetary columns are integer cents. `status` and `role` are enums. Receipts 
 | Phase | Name | Scope | Est. (part-time) |
 |---|---|---|---|
 | **P0** | Foundations | **Complete (2026-09-21):** monorepo, FastAPI + Next.js scaffold, Postgres schema and initial migration, OpenAPI→TS codegen, CI, and container deployment configuration. Hosted reachability has not been independently verified from this checkout. | 1–2 weeks |
-| **P1** | Core extraction | **In progress (2026-09-21):** receipt upload → object storage → async OCR job → structured breakdown persisted & displayed. `OcrProvider` (cloud default). *(`FR-OCR-*`)* | 2–3 weeks |
+| **P1** | Core extraction | **Complete (2026-09-22):** the single-user upload → storage → ARQ → Azure OCR → persisted/displayed breakdown slice is implemented and locally checked. Deployment configuration and live external-service validation remain. *(`FR-OCR-*`)* | 2–3 weeks |
 | **P2** | Categorization + editable confirmation | LLM categorization to taxonomy; editable review UI; reconciliation gate. *(`FR-CAT-*`, `FR-CONF-*`)* | 1–2 weeks |
 | **P3** | Individual mode | Personal spending history, spending reports + CSV/PDF export, item selection, LLM synopsis + outbound request artifact (email/PDF) with edit/download. Self-contained; needs no approver or payroll. *(`FR-IND-*`, `FR-SYN-*`, `FR-FE-IND`)* | 2–3 weeks |
 | **P4** | Org workflow | State machine, approver view, synopsis in org context, audit log on transitions. *(`FR-WF-*`, `FR-SYN-*`, `FR-FE-ORG`)* | 2–3 weeks |
@@ -286,22 +286,23 @@ All monetary columns are integer cents. `status` and `role` are enums. Receipts 
 
 ## 9. Where We Left Off
 
-**Current phase: P1 — Core extraction (2026-09-21).** The single-user receipt-extraction vertical slice is implemented in the checkout, but has not yet been verified end-to-end against its real external services. P1 is therefore **in progress**, not complete.
+**Current phase: P1 — Core extraction (2026-09-22).** The single-user receipt-extraction vertical slice, including a production storage option, is implemented and locally verified. P1 remains **in progress** because it has not been run end-to-end against deployed Postgres, Redis, object storage, and Azure Document Intelligence.
 
 ### Implemented in P1
 
 - `POST /receipts` accepts JPEG, PNG, and WebP uploads (up to 10 MB), writes the image through the `ObjectStorage` boundary, creates a `receipts` row in `pending`, and enqueues `extract_receipt` in ARQ.
-- The current development storage implementation is `LocalObjectStorage` (filesystem-backed). The receipt row persists only an `image_key`; extraction status, error, currency, extracted fields, raw provider response, and line items are represented in the schema and the `41c1d4a2b0e9` migration.
+- Storage is selected by `STORAGE_BACKEND` in both the API and worker: `local` (the default, filesystem-backed `LocalObjectStorage`) for development/tests, or `s3` (`S3ObjectStorage`) for a durable S3-compatible bucket. The production configuration requires `S3_BUCKET`, with optional `S3_ENDPOINT_URL` and `AWS_REGION`; credentials use boto3's standard provider chain. The receipt row persists only an `image_key`.
+- Extraction status, error, currency, extracted fields, raw provider response, and line items are represented in the schema and the `41c1d4a2b0e9` migration.
 - The ARQ worker moves a receipt through `pending → processing → succeeded` or `failed`, retrieves the image, calls Azure Document Intelligence's prebuilt-receipt model through the `OcrProvider` interface, and persists structured data and integer-cent line items.
 - `GET /receipts/{id}` exposes the processing state and persisted breakdown. The Next.js capture screen uploads one receipt with mobile-camera support, polls that endpoint, and displays the merchant, total, and extracted line items.
-- Unit coverage verifies Azure-response parsing and Decimal-to-integer-cent conversion. The OpenAPI contract and generated TypeScript client include the receipt endpoints.
+- Automated coverage verifies Azure-response parsing, Decimal-to-integer-cent conversion, and the initial workflow handoff: upload → stored image → pending receipt → queued `extract_receipt` job. The OpenAPI contract and generated TypeScript client include the receipt endpoints.
 
 ### P1 completion work — next, in order
 
-1. Configure Postgres, Redis, the worker, and Azure Document Intelligence credentials together; run a real receipt from browser upload through worker completion and record the result. Exercise both the successful and failed-extraction UI states.
-2. Add a production S3-compatible `ObjectStorage` adapter and configure both API and worker to select the same storage backend. `LocalObjectStorage` remains only for local development and tests; the worker currently instantiates it directly.
-3. Add integration coverage for upload, queueing, extraction-state transitions, and persisted line items (using fakes for storage, queue, and OCR where appropriate). Confirm retry behavior does not duplicate line items.
-4. Run the chosen cloud provider against a small representative set of real receipts and record amount, line-item, and reconciliation accuracy. Use those results to decide whether any parser/provider adjustments are required before P2.
+1. Configure deployed Postgres, Redis, the API, and worker with the same `STORAGE_BACKEND=s3` bucket and Azure Document Intelligence credentials. Apply migrations and run a real receipt from browser upload through worker completion; record the result.
+2. Exercise and record both browser states against the deployed path: successful extraction and a recoverable failed extraction.
+3. Extend automated coverage from the existing upload/queue handoff to worker state transitions, persisted line items, and retry behavior (including no duplicate line items after a successful retry).
+4. Run Azure against a small representative set of real receipts and record amount, line-item, and reconciliation accuracy. Make any parser/provider adjustments indicated by those results before P2.
 
 **P1 exit criterion:** a deployed single-user path reliably performs **upload → durable object storage → ARQ extraction → persisted structured breakdown → browser display**, with a recoverable failure state, against the chosen cloud OCR provider. Once this is demonstrated, begin **P2**: taxonomy-constrained LLM categorization, editable review, and the reconciliation gate.
 
