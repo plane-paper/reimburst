@@ -4,7 +4,7 @@ from arq.connections import RedisSettings
 from shared.enums import ExtractionStatus
 from shared.models import LineItem, Receipt
 from shared.ocr import AzureDocumentIntelligenceOcrProvider, extraction_as_json
-from shared.storage import LocalObjectStorage
+from shared.storage import object_storage_from_environment
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 
@@ -23,7 +23,7 @@ async def extract_receipt(_: dict[object, object], receipt_id: int, content_type
             image_key = receipt.image_key
 
         try:
-            image = await LocalObjectStorage.from_environment().get(image_key)
+            image = await object_storage_from_environment().get(image_key)
             extraction = await AzureDocumentIntelligenceOcrProvider.from_environment().extract(
                 image, content_type
             )
