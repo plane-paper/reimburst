@@ -66,6 +66,8 @@ export function ReceiptCapture() {
         tax_cents: null,
         currency: null,
         extraction_error: null,
+        categorization_status: "pending",
+        categorization_error: null,
         line_items: [],
       });
     } catch {
@@ -77,6 +79,7 @@ export function ReceiptCapture() {
   }
 
   const waiting = receipt && ["pending", "processing"].includes(receipt.extraction_status);
+  const categorizing = receipt?.extraction_status === "succeeded" && ["pending", "processing"].includes(receipt.categorization_status);
 
   return (
     <section className="w-full rounded-xl border border-slate-200 bg-white p-5 shadow-xl shadow-slate-900/10 sm:p-7">
@@ -109,6 +112,8 @@ export function ReceiptCapture() {
       {receipt?.extraction_status === "failed" && (
         <p className="mt-5 rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">Extraction failed: {receipt.extraction_error ?? "Try another image."}</p>
       )}
+      {categorizing && <div className="mt-5 flex items-center gap-3 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800"><span className="size-2 animate-pulse rounded-full bg-[#2563eb]" />Categorizing line items…</div>}
+      {receipt?.categorization_status === "failed" && <p className="mt-5 rounded-lg border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-800">We extracted this receipt, but could not categorize it. You can categorize the items during review.</p>}
       {receipt?.extraction_status === "succeeded" && (
         <div className="mt-5 space-y-4 rounded-xl border border-slate-200 bg-slate-50/60 p-4 sm:p-5">
           <div className="flex items-start justify-between gap-4">
@@ -121,7 +126,7 @@ export function ReceiptCapture() {
           <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
             {receipt.line_items.map((item, index) => (
               <li className="flex justify-between gap-4 px-4 py-3 text-sm" key={`${item.description}-${index}`}>
-                <span className="text-slate-600">{item.description}</span>
+                <span className="text-slate-600">{item.description}{item.category && <span className={`ml-2 rounded-full px-2 py-0.5 text-xs font-medium ${item.needs_category_review ? "bg-amber-50 text-amber-700" : "bg-blue-50 text-blue-700"}`}>{item.needs_category_review ? "Needs review: " : ""}{item.category.replaceAll("_", " ")}</span>}</span>
                 <span className="font-semibold text-slate-700">{formatCents(item.amount_cents, receipt.currency)}</span>
               </li>
             ))}

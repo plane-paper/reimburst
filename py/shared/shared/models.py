@@ -83,6 +83,12 @@ class Receipt(Base):
         server_default=ExtractionStatus.PENDING.value,
     )
     extraction_error: Mapped[str | None] = mapped_column(Text)
+    categorization_status: Mapped[ExtractionStatus] = mapped_column(
+        Enum(ExtractionStatus, name="extraction_status", native_enum=True),
+        default=ExtractionStatus.PENDING,
+        server_default=ExtractionStatus.PENDING.value,
+    )
+    categorization_error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -96,6 +102,7 @@ class LineItem(Base):
     description: Mapped[str] = mapped_column(String(255))
     amount_cents: Mapped[int] = mapped_column()
     category_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id"))
+    needs_category_review: Mapped[bool] = mapped_column(default=True, server_default="true")
 
 
 class OutboundRequest(Base):

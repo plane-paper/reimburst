@@ -1,7 +1,7 @@
 # reimburst
 Reimbursement automation service
 
-## Core extraction (P1)
+## Extraction and categorization (P1 / P2)
 
 The receipt path is `POST /receipts` → object storage → ARQ → Azure Document
 Intelligence → `GET /receipts/{id}`. Run Postgres and Redis with
@@ -13,7 +13,16 @@ DATABASE_URL=postgresql+asyncpg://reimburse:reimburse@localhost:5432/reimburse
 REDIS_URL=redis://localhost:6379
 AZURE_DI_ENDPOINT=https://<resource>.cognitiveservices.azure.com
 AZURE_DI_KEY=<key>
+OPENAI_API_KEY=<key>
+# OPENAI_CATEGORIZATION_MODEL=gpt-4o-mini
 ```
+
+After OCR completes, the worker categorizes each line item asynchronously with
+taxonomy-constrained structured output. The built-in global taxonomy is
+`hotel`, `food`, `essentials`, `transport`, `office_supplies`, `other`, and
+`uncategorized`; low-confidence and fallback assignments are returned with a
+human-review flag. `GET /receipts/taxonomy` exposes this same taxonomy to the
+client.
 
 For local development, storage defaults to `STORAGE_BACKEND=local` and writes
 to `LOCAL_STORAGE_PATH` (default: `/tmp/reimburst-uploads`). For deployment,
