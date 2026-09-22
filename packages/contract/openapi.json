@@ -64,6 +64,32 @@
         }
       }
     },
+    "/receipts/taxonomy": {
+      "get": {
+        "tags": [
+          "receipts"
+        ],
+        "summary": "Get Taxonomy",
+        "description": "The active global taxonomy. Organization scoping is added with P4/P5 auth.",
+        "operationId": "get_taxonomy_receipts_taxonomy_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CategoryDetail"
+                  },
+                  "type": "array",
+                  "title": "Response Get Taxonomy Receipts Taxonomy Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/receipts/{receipt_id}": {
       "get": {
         "tags": [
@@ -124,6 +150,24 @@
         ],
         "title": "Body_create_receipt_receipts_post"
       },
+      "CategoryDetail": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "CategoryDetail"
+      },
       "ExtractionStatus": {
         "type": "string",
         "enum": [
@@ -169,12 +213,29 @@
           "amount_cents": {
             "type": "integer",
             "title": "Amount Cents"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "needs_category_review": {
+            "type": "boolean",
+            "title": "Needs Category Review"
           }
         },
         "type": "object",
         "required": [
           "description",
-          "amount_cents"
+          "amount_cents",
+          "category",
+          "needs_category_review"
         ],
         "title": "LineItemDetail"
       },
@@ -268,6 +329,20 @@
             ],
             "title": "Extraction Error"
           },
+          "categorization_status": {
+            "$ref": "#/components/schemas/ExtractionStatus"
+          },
+          "categorization_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Categorization Error"
+          },
           "line_items": {
             "items": {
               "$ref": "#/components/schemas/LineItemDetail"
@@ -285,6 +360,8 @@
           "total_cents",
           "tax_cents",
           "extraction_error",
+          "categorization_status",
+          "categorization_error",
           "line_items"
         ],
         "title": "ReceiptDetail"

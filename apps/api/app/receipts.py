@@ -8,7 +8,7 @@ from arq.connections import RedisSettings
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel
 from shared.enums import ExtractionStatus, UserRole
-from shared.models import LineItem, Receipt, User
+from shared.models import Category, LineItem, Receipt, User
 from shared.storage import ObjectStorage, object_storage_from_environment
 from sqlalchemy import select
 
@@ -32,6 +32,8 @@ class ReceiptCreated(BaseModel):
 class LineItemDetail(BaseModel):
     description: str
     amount_cents: int
+    category: str | None
+    needs_category_review: bool
 
 
 class ReceiptDetail(ReceiptCreated):
@@ -40,6 +42,8 @@ class ReceiptDetail(ReceiptCreated):
     tax_cents: int | None
     currency: str | None = None
     extraction_error: str | None
+    categorization_status: ExtractionStatus
+    categorization_error: str | None
     line_items: list[LineItemDetail]
 
 
@@ -106,16 +110,36 @@ async def create_receipt(
     )
 
 
+class CategoryDetail(BaseModel):
+    id: int
+    name: str
+
+
+@router.get("/taxonomy", response_model=list[CategoryDetail])
+async def get_taxonomy() -> list[CategoryDetail]:
+    """The active global taxonomy. Organization scoping is added with P4/P5 auth."""
+    async with session_factory()() as session:
+        categories = list(
+            await session.scalars(
+                select(Category).where(Category.org_id.is_(None)).order_by(Category.id)
+            )
+        )
+    return [CategoryDetail(id=category.id, name=category.name) for category in categories]
+
+
 @router.get("/{receipt_id}", response_model=ReceiptDetail)
 async def get_receipt(receipt_id: int) -> ReceiptDetail:
     async with session_factory()() as session:
         receipt = await session.get(Receipt, receipt_id)
         line_items = list(
-            await session.scalars(
-                select(LineItem)
-                .where(LineItem.receipt_id == receipt_id)
-                .order_by(LineItem.id)
-            )
+            (
+                await session.execute(
+                    select(LineItem, Category.name)
+                    .outerjoin(Category, LineItem.category_id == Category.id)
+                    .where(LineItem.receipt_id == receipt_id)
+                    .order_by(LineItem.id)
+                )
+            ).all()
         )
     if receipt is None:
         raise HTTPException(status_code=404, detail="Receipt not found")
@@ -128,8 +152,15 @@ async def get_receipt(receipt_id: int) -> ReceiptDetail:
         tax_cents=receipt.tax_cents,
         currency=receipt.currency,
         extraction_error=receipt.extraction_error,
+        categorization_status=receipt.categorization_status,
+        categorization_error=receipt.categorization_error,
         line_items=[
-            LineItemDetail(description=item.description, amount_cents=item.amount_cents)
-            for item in line_items
+            LineItemDetail(
+                description=item.description,
+                amount_cents=item.amount_cents,
+                category=category,
+                needs_category_review=item.needs_category_review,
+            )
+            for item, category in line_items
         ],
     )

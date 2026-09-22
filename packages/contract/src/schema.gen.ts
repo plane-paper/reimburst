@@ -38,6 +38,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/receipts/taxonomy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Taxonomy
+         * @description The active global taxonomy. Organization scoping is added with P4/P5 auth.
+         */
+        get: operations["get_taxonomy_receipts_taxonomy_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/receipts/{receipt_id}": {
         parameters: {
             query?: never;
@@ -67,6 +87,13 @@ export interface components {
              */
             image: string;
         };
+        /** CategoryDetail */
+        CategoryDetail: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+        };
         /**
          * ExtractionStatus
          * @enum {string}
@@ -88,6 +115,10 @@ export interface components {
             description: string;
             /** Amount Cents */
             amount_cents: number;
+            /** Category */
+            category: string | null;
+            /** Needs Category Review */
+            needs_category_review: boolean;
         };
         /** ReceiptCreated */
         ReceiptCreated: {
@@ -114,6 +145,9 @@ export interface components {
             currency?: string | null;
             /** Extraction Error */
             extraction_error: string | null;
+            categorization_status: components["schemas"]["ExtractionStatus"];
+            /** Categorization Error */
+            categorization_error: string | null;
             /** Line Items */
             line_items: components["schemas"]["LineItemDetail"][];
         };
@@ -188,6 +222,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_taxonomy_receipts_taxonomy_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoryDetail"][];
                 };
             };
         };
