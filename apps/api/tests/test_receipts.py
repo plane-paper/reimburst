@@ -42,6 +42,11 @@ class FakeScalarResult:
         return iter(())
 
 
+class FakeExecuteResult:
+    def all(self) -> list[tuple[object, ...]]:
+        return []
+
+
 class FakeSession:
     def __init__(self) -> None:
         self.owner = User(id=1, email="local@reimburst.test", role=UserRole.INDIVIDUAL)
@@ -62,10 +67,14 @@ class FakeSession:
     async def scalars(self, _: object) -> FakeScalarResult:
         return FakeScalarResult()
 
+    async def execute(self, _: object) -> FakeExecuteResult:
+        return FakeExecuteResult()
+
     def add(self, value: object) -> None:
         if isinstance(value, Receipt):
             value.id = 2
             value.extraction_status = ExtractionStatus.PENDING
+            value.categorization_status = ExtractionStatus.PENDING
             self.receipt = value
 
     async def commit(self) -> None:
@@ -101,6 +110,8 @@ def test_upload_persists_pending_receipt_and_enqueues_extraction(monkeypatch) ->
                 "tax_cents": None,
                 "currency": None,
                 "extraction_error": None,
+                "categorization_status": ExtractionStatus.PENDING,
+                "categorization_error": None,
                 "line_items": [],
             }
 
