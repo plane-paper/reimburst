@@ -113,6 +113,13 @@ def test_upload_persists_pending_receipt_and_enqueues_extraction(monkeypatch) ->
                 "categorization_status": ExtractionStatus.PENDING,
                 "categorization_error": None,
                 "line_items": [],
+                "reconciliation": {
+                    "line_items_total_cents": 0,
+                    "receipt_total_cents": None,
+                    "difference_cents": None,
+                    "matches": False,
+                },
+                "confirmed_at": None,
             }
 
         asyncio.run(run())

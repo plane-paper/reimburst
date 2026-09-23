@@ -75,6 +75,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/receipts/{receipt_id}/confirmation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Confirm Receipt
+         * @description Persist the reviewed breakdown, requiring an explicit mismatch acknowledgement.
+         */
+        put: operations["confirm_receipt_receipts__receipt_id__confirmation_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -94,6 +114,17 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** ConfirmedLineItem */
+        ConfirmedLineItem: {
+            /** Id */
+            id: number;
+            /** Description */
+            description: string;
+            /** Amount Cents */
+            amount_cents: number;
+            /** Category */
+            category: string;
+        };
         /**
          * ExtractionStatus
          * @enum {string}
@@ -111,6 +142,8 @@ export interface components {
         };
         /** LineItemDetail */
         LineItemDetail: {
+            /** Id */
+            id: number;
             /** Description */
             description: string;
             /** Amount Cents */
@@ -119,6 +152,16 @@ export interface components {
             category: string | null;
             /** Needs Category Review */
             needs_category_review: boolean;
+        };
+        /** ReceiptConfirmation */
+        ReceiptConfirmation: {
+            /** Line Items */
+            line_items: components["schemas"]["ConfirmedLineItem"][];
+            /**
+             * Acknowledge Reconciliation Mismatch
+             * @default false
+             */
+            acknowledge_reconciliation_mismatch: boolean;
         };
         /** ReceiptCreated */
         ReceiptCreated: {
@@ -150,6 +193,20 @@ export interface components {
             categorization_error: string | null;
             /** Line Items */
             line_items: components["schemas"]["LineItemDetail"][];
+            reconciliation: components["schemas"]["ReconciliationDetail"];
+            /** Confirmed At */
+            confirmed_at: string | null;
+        };
+        /** ReconciliationDetail */
+        ReconciliationDetail: {
+            /** Line Items Total Cents */
+            line_items_total_cents: number;
+            /** Receipt Total Cents */
+            receipt_total_cents: number | null;
+            /** Difference Cents */
+            difference_cents: number | null;
+            /** Matches */
+            matches: boolean;
         };
         /** ValidationError */
         ValidationError: {
@@ -256,6 +313,41 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceiptDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_receipt_receipts__receipt_id__confirmation_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                receipt_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReceiptConfirmation"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
