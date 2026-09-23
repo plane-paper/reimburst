@@ -272,7 +272,7 @@ All monetary columns are integer cents. `status` and `role` are enums. Receipts 
 | **P0** | Foundations | **Complete (2026-09-21):** monorepo, FastAPI + Next.js scaffold, Postgres schema and initial migration, OpenAPI→TS codegen, CI, and container deployment configuration. Hosted reachability has not been independently verified from this checkout. | 1–2 weeks |
 | **P1** | Core extraction | **Complete (2026-09-22):** the single-user upload → storage → ARQ → Azure OCR → persisted/displayed breakdown slice is implemented and locally checked. Deployment configuration and live external-service validation remain. *(`FR-OCR-*`)* | 2–3 weeks |
 | **P2** | Categorization + editable confirmation | **Complete (2026-09-22):** taxonomy-constrained categorization, editable review, explicit reconciliation acknowledgement, and persisted confirmed breakdowns are implemented and locally checked. *(`FR-CAT-*`, `FR-CONF-*`)* | 1–2 weeks |
-| **P3** | Individual mode | Personal spending history, spending reports + CSV/PDF export, item selection, LLM synopsis + outbound request artifact (email/PDF) with edit/download. Self-contained; needs no approver or payroll. *(`FR-IND-*`, `FR-SYN-*`, `FR-FE-IND`)* | 2–3 weeks |
+| **P3** | Individual mode | **Stage 1 complete (2026-09-23):** personal spending history, filterable category/merchant/date report, and CSV export. Next: item selection, LLM synopsis, and editable outbound request artifact (email/PDF). Self-contained; needs no approver or payroll. *(`FR-IND-*`, `FR-SYN-*`, `FR-FE-IND`)* | 2–3 weeks |
 | **P4** | Org workflow | State machine, approver view, synopsis in org context, audit log on transitions. *(`FR-WF-*`, `FR-SYN-*`, `FR-FE-ORG`)* | 2–3 weeks |
 | **P5** | Auth, RBAC, notifications, polish | Auth + role gating (individual vs org roles), notifications, audit trail view, error states. *(`FR-AUTH-01/02`, `FR-NOTE-*`)* | 1–2 weeks |
 | **P6** | Payout & integration | `PayrollProvider` with CSV fallback first, then Employment Hero adapter (idempotent). *(`FR-PAY-*`, `INT-01`)* | 2–4 weeks (high variance) |
@@ -286,7 +286,15 @@ All monetary columns are integer cents. `status` and `role` are enums. Receipts 
 
 ## 9. Where We Left Off
 
-**Current phase: P3 — Individual mode (2026-09-22).** P1 and P2 are complete. The upload → storage → ARQ extraction → categorization → editable, reconciled confirmation path is accepted as the completed shared capture slice; deployed end-to-end validation remains an operational follow-up.
+**Current phase: P3 — Individual mode (2026-09-23).** P1 and P2 are complete. The upload → storage → ARQ extraction → categorization → editable, reconciled confirmation path is accepted as the completed shared capture slice; deployed end-to-end validation remains an operational follow-up.
+
+### P3 stage 1 delivered — personal spending history and CSV reports
+
+- `GET /spending/history` returns only the development individual user's confirmed line items, ordered by receipt date and scoped to that user's receipts. It supports date range, category, and merchant filters.
+- `GET /spending/report` applies the same filters and returns totals grouped by category, merchant, or receipt date. Group totals retain currency, avoiding an implicit cross-currency conversion.
+- `GET /spending/export.csv` exports the filtered personal line-item history with receipt, date, merchant, category, integer-cent amount, and currency fields.
+- The new `/spending` screen exposes the filters, category totals, a confirmed-item table, and a download control; the home-page report action links to it.
+- This completes the foundation for `FR-IND-01`, `FR-IND-02`, and CSV coverage of `FR-IND-03`. PDF export, outbound item selection, synopsis/artifact generation, and request history remain for the following P3 stages.
 
 ### Completed in P1
 
