@@ -2,7 +2,7 @@ import csv
 from collections import defaultdict
 from datetime import date
 from io import StringIO
-from typing import Literal
+from typing import Literal, cast
 
 from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel
@@ -66,7 +66,8 @@ def spending_statement(
         statement = statement.where(Category.name == category)
     if merchant is not None:
         statement = statement.where(Receipt.merchant.ilike(f"%{merchant}%"))
-    return statement
+    # SQLAlchemy's type inference does not make right-side columns optional for an outer join.
+    return cast(Select[tuple[Receipt, LineItem, str | None]], statement)
 
 
 async def personal_spending_items(
