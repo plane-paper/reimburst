@@ -131,6 +131,59 @@
           }
         }
       }
+    },
+    "/receipts/{receipt_id}/confirmation": {
+      "put": {
+        "tags": [
+          "receipts"
+        ],
+        "summary": "Confirm Receipt",
+        "description": "Persist the reviewed breakdown, requiring an explicit mismatch acknowledgement.",
+        "operationId": "confirm_receipt_receipts__receipt_id__confirmation_put",
+        "parameters": [
+          {
+            "name": "receipt_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Receipt Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReceiptConfirmation"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -167,6 +220,38 @@
           "name"
         ],
         "title": "CategoryDetail"
+      },
+      "ConfirmedLineItem": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Description"
+          },
+          "amount_cents": {
+            "type": "integer",
+            "title": "Amount Cents"
+          },
+          "category": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Category"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "description",
+          "amount_cents",
+          "category"
+        ],
+        "title": "ConfirmedLineItem"
       },
       "ExtractionStatus": {
         "type": "string",
@@ -206,6 +291,10 @@
       },
       "LineItemDetail": {
         "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
           "description": {
             "type": "string",
             "title": "Description"
@@ -232,12 +321,34 @@
         },
         "type": "object",
         "required": [
+          "id",
           "description",
           "amount_cents",
           "category",
           "needs_category_review"
         ],
         "title": "LineItemDetail"
+      },
+      "ReceiptConfirmation": {
+        "properties": {
+          "line_items": {
+            "items": {
+              "$ref": "#/components/schemas/ConfirmedLineItem"
+            },
+            "type": "array",
+            "title": "Line Items"
+          },
+          "acknowledge_reconciliation_mismatch": {
+            "type": "boolean",
+            "title": "Acknowledge Reconciliation Mismatch",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "line_items"
+        ],
+        "title": "ReceiptConfirmation"
       },
       "ReceiptCreated": {
         "properties": {
@@ -349,6 +460,21 @@
             },
             "type": "array",
             "title": "Line Items"
+          },
+          "reconciliation": {
+            "$ref": "#/components/schemas/ReconciliationDetail"
+          },
+          "confirmed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed At"
           }
         },
         "type": "object",
@@ -362,9 +488,53 @@
           "extraction_error",
           "categorization_status",
           "categorization_error",
-          "line_items"
+          "line_items",
+          "reconciliation",
+          "confirmed_at"
         ],
         "title": "ReceiptDetail"
+      },
+      "ReconciliationDetail": {
+        "properties": {
+          "line_items_total_cents": {
+            "type": "integer",
+            "title": "Line Items Total Cents"
+          },
+          "receipt_total_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Receipt Total Cents"
+          },
+          "difference_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Difference Cents"
+          },
+          "matches": {
+            "type": "boolean",
+            "title": "Matches"
+          }
+        },
+        "type": "object",
+        "required": [
+          "line_items_total_cents",
+          "receipt_total_cents",
+          "difference_cents",
+          "matches"
+        ],
+        "title": "ReconciliationDetail"
       },
       "ValidationError": {
         "properties": {

@@ -271,7 +271,7 @@ All monetary columns are integer cents. `status` and `role` are enums. Receipts 
 |---|---|---|---|
 | **P0** | Foundations | **Complete (2026-09-21):** monorepo, FastAPI + Next.js scaffold, Postgres schema and initial migration, OpenAPI→TS codegen, CI, and container deployment configuration. Hosted reachability has not been independently verified from this checkout. | 1–2 weeks |
 | **P1** | Core extraction | **Complete (2026-09-22):** the single-user upload → storage → ARQ → Azure OCR → persisted/displayed breakdown slice is implemented and locally checked. Deployment configuration and live external-service validation remain. *(`FR-OCR-*`)* | 2–3 weeks |
-| **P2** | Categorization + editable confirmation | **In progress (2026-09-22):** taxonomy-constrained LLM categorization is implemented; editable review and reconciliation remain. *(`FR-CAT-*`, `FR-CONF-*`)* | 1–2 weeks |
+| **P2** | Categorization + editable confirmation | **Complete (2026-09-22):** taxonomy-constrained categorization, editable review, explicit reconciliation acknowledgement, and persisted confirmed breakdowns are implemented and locally checked. *(`FR-CAT-*`, `FR-CONF-*`)* | 1–2 weeks |
 | **P3** | Individual mode | Personal spending history, spending reports + CSV/PDF export, item selection, LLM synopsis + outbound request artifact (email/PDF) with edit/download. Self-contained; needs no approver or payroll. *(`FR-IND-*`, `FR-SYN-*`, `FR-FE-IND`)* | 2–3 weeks |
 | **P4** | Org workflow | State machine, approver view, synopsis in org context, audit log on transitions. *(`FR-WF-*`, `FR-SYN-*`, `FR-FE-ORG`)* | 2–3 weeks |
 | **P5** | Auth, RBAC, notifications, polish | Auth + role gating (individual vs org roles), notifications, audit trail view, error states. *(`FR-AUTH-01/02`, `FR-NOTE-*`)* | 1–2 weeks |
@@ -286,7 +286,7 @@ All monetary columns are integer cents. `status` and `role` are enums. Receipts 
 
 ## 9. Where We Left Off
 
-**Current phase: P2 — Categorization + editable confirmation (2026-09-22).** P1 is complete. The upload → storage → ARQ extraction → persisted/displayed breakdown path is accepted as the completed P1 slice; deployed end-to-end validation remains an operational follow-up, not a blocker for P2.
+**Current phase: P3 — Individual mode (2026-09-22).** P1 and P2 are complete. The upload → storage → ARQ extraction → categorization → editable, reconciled confirmation path is accepted as the completed shared capture slice; deployed end-to-end validation remains an operational follow-up.
 
 ### Completed in P1
 
@@ -305,14 +305,17 @@ All monetary columns are integer cents. `status` and `role` are enums. Receipts 
 - Low-confidence, invalid, missing, or ambiguous model results are assigned `uncategorized` and flagged for human review. The capture UI displays categorization progress, failures, and review badges.
 - Automated coverage verifies the strict taxonomy enum and fallback behavior. Ruff, pytest, mypy, generated-contract type checks, and a production web build pass.
 
-### P2 remaining work — editable confirmation
+### P2 delivered — editable confirmation
 
-1. Build the review-and-confirm screen as an editable table for descriptions, integer-cent amounts, and taxonomy-constrained category selection.
-2. Add reconciliation (line-item sum versus receipt total), a visible discrepancy warning, and a confirmation gate that prevents silent submission on mismatch.
-3. Persist approved user edits as the confirmed breakdown, ready for P3/P4 workflow use.
-4. Complete the deferred P1 operational follow-up: validate the deployed browser → storage → worker path against real receipts and record both success and recoverable failure behavior.
+- `GET /receipts/{id}` now returns stable line-item IDs, a server-calculated reconciliation result (line-item total, receipt total, difference, match state), and a `confirmed_at` timestamp.
+- The capture review presents an editable, keyboard-labeled table for descriptions, amounts, and taxonomy-constrained categories. Low-confidence/`uncategorized` rows remain visibly flagged until the user reviews them.
+- `PUT /receipts/{id}/confirmation` validates the complete submitted breakdown against the receipt's line items and global taxonomy, persists the approved edits, and clears category-review flags. A confirmation is frozen with `confirmed_at` and cannot be changed through this endpoint.
+- Reconciliation is enforced in both layers. The UI shows a visible difference warning and requires an explicit acknowledgement checkbox; the API independently rejects a mismatch without `acknowledge_reconciliation_mismatch`, so a client cannot silently submit it.
+- Automated tests cover mismatch rejection and acknowledged persistence; Ruff, pytest, mypy, generated-contract type checks, web lint, and the production web build pass.
 
-**P2 exit criterion:** every extracted line item is categorized from the shared taxonomy or safely flagged `uncategorized`; the user can correct the full breakdown; and reconciliation visibly blocks silent confirmation when the totals do not match.
+**P2 exit criterion: met.** Every extracted line item is categorized from the shared taxonomy or safely flagged `uncategorized`; the user can correct the full breakdown; and reconciliation visibly prevents silent confirmation when totals do not match.
+
+**Remaining operational follow-up (P1):** validate the deployed browser → storage → worker path against real receipts and record both success and recoverable failure behavior. This is not a blocker for P3.
 
 ---
 

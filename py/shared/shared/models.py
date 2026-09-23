@@ -89,6 +89,7 @@ class Receipt(Base):
         server_default=ExtractionStatus.PENDING.value,
     )
     categorization_error: Mapped[str | None] = mapped_column(Text)
+    confirmed_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
