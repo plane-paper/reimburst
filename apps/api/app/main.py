@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from app.receipts import router as receipts_router
+from app.spending import router as spending_router
 
 app = FastAPI(title="Reimburse API")
 
@@ -27,3 +28,4 @@ def health() -> HealthResponse:
 
 
 app.include_router(receipts_router)
+app.include_router(spending_router)

@@ -95,6 +95,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/spending/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Spending History */
+        get: operations["get_spending_history_spending_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/spending/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Spending Report */
+        get: operations["get_spending_report_spending_report_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/spending/export.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export Spending Csv */
+        get: operations["export_spending_csv_spending_export_csv_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -207,6 +258,51 @@ export interface components {
             difference_cents: number | null;
             /** Matches */
             matches: boolean;
+        };
+        /** SpendingGroup */
+        SpendingGroup: {
+            /** Name */
+            name: string;
+            /** Currency */
+            currency: string | null;
+            /** Total Cents */
+            total_cents: number;
+        };
+        /** SpendingHistory */
+        SpendingHistory: {
+            /** Items */
+            items: components["schemas"]["SpendingItem"][];
+        };
+        /** SpendingItem */
+        SpendingItem: {
+            /** Receipt Id */
+            receipt_id: number;
+            /** Line Item Id */
+            line_item_id: number;
+            /** Merchant */
+            merchant: string | null;
+            /** Receipt Date */
+            receipt_date: string | null;
+            /** Currency */
+            currency: string | null;
+            /** Description */
+            description: string;
+            /** Amount Cents */
+            amount_cents: number;
+            /** Category */
+            category: string | null;
+        };
+        /** SpendingReport */
+        SpendingReport: {
+            /**
+             * Group By
+             * @enum {string}
+             */
+            group_by: "category" | "merchant" | "date";
+            /** Groups */
+            groups: components["schemas"]["SpendingGroup"][];
+            /** Total Cents */
+            total_cents: number;
         };
         /** ValidationError */
         ValidationError: {
@@ -357,6 +453,107 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ReceiptDetail"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_spending_history_spending_history_get: {
+        parameters: {
+            query?: {
+                start_date?: string | null;
+                end_date?: string | null;
+                category?: string | null;
+                merchant?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpendingHistory"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_spending_report_spending_report_get: {
+        parameters: {
+            query?: {
+                group_by?: "category" | "merchant" | "date";
+                start_date?: string | null;
+                end_date?: string | null;
+                category?: string | null;
+                merchant?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpendingReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_spending_csv_spending_export_csv_get: {
+        parameters: {
+            query?: {
+                start_date?: string | null;
+                end_date?: string | null;
+                category?: string | null;
+                merchant?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
