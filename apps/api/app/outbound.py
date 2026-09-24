@@ -247,9 +247,8 @@ async def mark_outbound_request_sent(request_id: int) -> OutboundRequestDetail:
             raise HTTPException(status_code=404, detail="Outbound request not found")
         if outbound.generation_status is not ExtractionStatus.SUCCEEDED:
             raise HTTPException(status_code=409, detail="Artifact generation has not completed")
-        if outbound.status is OutboundRequestStatus.SENT:
-            return await request_detail(request_id, owner_id)
-        outbound.status = OutboundRequestStatus.SENT
-        outbound.sent_at = datetime.now(UTC)
-        await session.commit()
+        if outbound.status is not OutboundRequestStatus.SENT:
+            outbound.status = OutboundRequestStatus.SENT
+            outbound.sent_at = datetime.now(UTC)
+            await session.commit()
     return await request_detail(request_id, owner_id)
