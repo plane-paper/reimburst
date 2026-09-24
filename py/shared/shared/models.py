@@ -114,6 +114,12 @@ class OutboundRequest(Base):
     synopsis: Mapped[str | None] = mapped_column(Text)
     artifact: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     external_payer: Mapped[str | None] = mapped_column(String(255))
+    generation_status: Mapped[ExtractionStatus] = mapped_column(
+        Enum(ExtractionStatus, name="extraction_status", native_enum=True),
+        default=ExtractionStatus.PENDING,
+        server_default=ExtractionStatus.PENDING.value,
+    )
+    generation_error: Mapped[str | None] = mapped_column(Text)
     status: Mapped[OutboundRequestStatus] = mapped_column(
         Enum(OutboundRequestStatus, name="outbound_request_status", native_enum=True),
         default=OutboundRequestStatus.DRAFT,

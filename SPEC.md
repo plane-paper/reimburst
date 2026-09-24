@@ -272,7 +272,7 @@ All monetary columns are integer cents. `status` and `role` are enums. Receipts 
 | **P0** | Foundations | **Complete (2026-09-21):** monorepo, FastAPI + Next.js scaffold, Postgres schema and initial migration, OpenAPI→TS codegen, CI, and container deployment configuration. Hosted reachability has not been independently verified from this checkout. | 1–2 weeks |
 | **P1** | Core extraction | **Complete (2026-09-22):** the single-user upload → storage → ARQ → Azure OCR → persisted/displayed breakdown slice is implemented and locally checked. Deployment configuration and live external-service validation remain. *(`FR-OCR-*`)* | 2–3 weeks |
 | **P2** | Categorization + editable confirmation | **Complete (2026-09-22):** taxonomy-constrained categorization, editable review, explicit reconciliation acknowledgement, and persisted confirmed breakdowns are implemented and locally checked. *(`FR-CAT-*`, `FR-CONF-*`)* | 1–2 weeks |
-| **P3** | Individual mode | **Stage 1 complete (2026-09-23):** personal spending history, filterable category/merchant/date report, and CSV export. Next: item selection, LLM synopsis, and editable outbound request artifact (email/PDF). Self-contained; needs no approver or payroll. *(`FR-IND-*`, `FR-SYN-*`, `FR-FE-IND`)* | 2–3 weeks |
+| **P3** | Individual mode | **Complete (2026-09-24):** personal spending history and CSV reports; confirmed-item selection across receipts; asynchronous LLM synopsis and editable outbound email artifact; user-driven copy/download and sent tracking with request history. Self-contained; needs no approver or payroll. *(`FR-IND-*`, `FR-SYN-*`, `FR-FE-IND`)* | 2–3 weeks |
 | **P4** | Org workflow | State machine, approver view, synopsis in org context, audit log on transitions. *(`FR-WF-*`, `FR-SYN-*`, `FR-FE-ORG`)* | 2–3 weeks |
 | **P5** | Auth, RBAC, notifications, polish | Auth + role gating (individual vs org roles), notifications, audit trail view, error states. *(`FR-AUTH-01/02`, `FR-NOTE-*`)* | 1–2 weeks |
 | **P6** | Payout & integration | `PayrollProvider` with CSV fallback first, then Employment Hero adapter (idempotent). *(`FR-PAY-*`, `INT-01`)* | 2–4 weeks (high variance) |
@@ -286,7 +286,7 @@ All monetary columns are integer cents. `status` and `role` are enums. Receipts 
 
 ## 9. Where We Left Off
 
-**Current phase: P3 — Individual mode (2026-09-23).** P1 and P2 are complete. The upload → storage → ARQ extraction → categorization → editable, reconciled confirmation path is accepted as the completed shared capture slice; deployed end-to-end validation remains an operational follow-up.
+**Current phase: P4 — Organization workflow (2026-09-24).** P1–P3 are complete. The upload → storage → ARQ extraction → categorization → editable, reconciled confirmation path is accepted as the completed shared capture slice; deployed end-to-end validation remains an operational follow-up.
 
 ### P3 stage 1 delivered — personal spending history and CSV reports
 
@@ -295,6 +295,15 @@ All monetary columns are integer cents. `status` and `role` are enums. Receipts 
 - `GET /spending/export.csv` exports the filtered personal line-item history with receipt, date, merchant, category, integer-cent amount, and currency fields.
 - The new `/spending` screen exposes the filters, category totals, a confirmed-item table, and a download control; the home-page report action links to it.
 - This completes the foundation for `FR-IND-01`, `FR-IND-02`, and CSV coverage of `FR-IND-03`. PDF export, outbound item selection, synopsis/artifact generation, and request history remain for the following P3 stages.
+
+### P3 complete — outbound reimbursement requests
+
+- `/requests` lets an individual browse confirmed personal line items, select a subset across receipts, see a running total, and provide an external payer (`FR-IND-04`, `FR-FE-14`). Items already covered by generated or sent requests cannot be selected again.
+- `POST /outbound-requests` persists the selected-item join records and enqueues `generate_outbound_request`. The ARQ worker uses OpenAI Structured Outputs to generate and persist a synopsis plus email subject/body, exposing pending, success, and recoverable failure states (`FR-IND-05`, `FR-SYN-01/02`, `FR-FE-04`). `OPENAI_SYNOPSIS_MODEL` defaults to `gpt-4o-mini`.
+- The composition screen allows the payer, synopsis, subject, and body to be edited before sending. It supports copying the email and downloading an `.eml` artifact; it never sends automatically (`FR-IND-06`, `FR-IND-07`, `FR-FE-15`).
+- Generated and sent outbound requests appear in history with their covered items and timestamps. Marking a request sent is a deliberate, idempotent user action (`FR-IND-08`, `FR-FE-16`).
+
+**P3 exit criterion: met.** Individual mode is a shippable standalone flow: capture and confirm receipts, report spending, select reimbursable items, generate and edit an outbound request, send it through the user's own email client, and track the request afterward.
 
 ### Completed in P1
 

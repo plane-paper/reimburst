@@ -489,6 +489,204 @@
           }
         }
       }
+    },
+    "/outbound-requests": {
+      "get": {
+        "tags": [
+          "outbound requests"
+        ],
+        "summary": "List Outbound Requests",
+        "operationId": "list_outbound_requests_outbound_requests_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OutboundRequestDetail"
+                  },
+                  "type": "array",
+                  "title": "Response List Outbound Requests Outbound Requests Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "outbound requests"
+        ],
+        "summary": "Create Outbound Request",
+        "operationId": "create_outbound_request_outbound_requests_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OutboundRequestCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OutboundRequestDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/outbound-requests/{request_id}": {
+      "get": {
+        "tags": [
+          "outbound requests"
+        ],
+        "summary": "Get Outbound Request",
+        "operationId": "get_outbound_request_outbound_requests__request_id__get",
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Request Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OutboundRequestDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "outbound requests"
+        ],
+        "summary": "Update Outbound Request",
+        "operationId": "update_outbound_request_outbound_requests__request_id__put",
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Request Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OutboundRequestUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OutboundRequestDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/outbound-requests/{request_id}/mark-sent": {
+      "post": {
+        "tags": [
+          "outbound requests"
+        ],
+        "summary": "Mark Outbound Request Sent",
+        "operationId": "mark_outbound_request_sent_outbound_requests__request_id__mark_sent_post",
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Request Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OutboundRequestDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -633,6 +831,279 @@
           "needs_category_review"
         ],
         "title": "LineItemDetail"
+      },
+      "OutboundItemDetail": {
+        "properties": {
+          "line_item_id": {
+            "type": "integer",
+            "title": "Line Item Id"
+          },
+          "receipt_id": {
+            "type": "integer",
+            "title": "Receipt Id"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "amount_cents": {
+            "type": "integer",
+            "title": "Amount Cents"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "merchant": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merchant"
+          },
+          "receipt_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Receipt Date"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          }
+        },
+        "type": "object",
+        "required": [
+          "line_item_id",
+          "receipt_id",
+          "description",
+          "amount_cents",
+          "currency",
+          "merchant",
+          "receipt_date",
+          "category"
+        ],
+        "title": "OutboundItemDetail"
+      },
+      "OutboundRequestCreate": {
+        "properties": {
+          "external_payer": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "External Payer"
+          },
+          "line_item_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Line Item Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "external_payer",
+          "line_item_ids"
+        ],
+        "title": "OutboundRequestCreate"
+      },
+      "OutboundRequestDetail": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "external_payer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Payer"
+          },
+          "synopsis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Synopsis"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject"
+          },
+          "body": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body"
+          },
+          "status": {
+            "$ref": "#/components/schemas/OutboundRequestStatus"
+          },
+          "generation_status": {
+            "$ref": "#/components/schemas/ExtractionStatus"
+          },
+          "generation_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generation Error"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "sent_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sent At"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OutboundItemDetail"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "external_payer",
+          "synopsis",
+          "subject",
+          "body",
+          "status",
+          "generation_status",
+          "generation_error",
+          "created_at",
+          "sent_at",
+          "items"
+        ],
+        "title": "OutboundRequestDetail"
+      },
+      "OutboundRequestStatus": {
+        "type": "string",
+        "enum": [
+          "draft",
+          "generated",
+          "sent"
+        ],
+        "title": "OutboundRequestStatus"
+      },
+      "OutboundRequestUpdate": {
+        "properties": {
+          "external_payer": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Payer"
+          },
+          "synopsis": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Synopsis"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject"
+          },
+          "body": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body"
+          }
+        },
+        "type": "object",
+        "title": "OutboundRequestUpdate"
       },
       "ReceiptConfirmation": {
         "properties": {
