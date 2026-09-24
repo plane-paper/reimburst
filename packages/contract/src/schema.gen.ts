@@ -146,6 +146,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/outbound-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Outbound Requests */
+        get: operations["list_outbound_requests_outbound_requests_get"];
+        put?: never;
+        /** Create Outbound Request */
+        post: operations["create_outbound_request_outbound_requests_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/outbound-requests/{request_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Outbound Request */
+        get: operations["get_outbound_request_outbound_requests__request_id__get"];
+        /** Update Outbound Request */
+        put: operations["update_outbound_request_outbound_requests__request_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/outbound-requests/{request_id}/mark-sent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark Outbound Request Sent */
+        post: operations["mark_outbound_request_sent_outbound_requests__request_id__mark_sent_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -203,6 +256,74 @@ export interface components {
             category: string | null;
             /** Needs Category Review */
             needs_category_review: boolean;
+        };
+        /** OutboundItemDetail */
+        OutboundItemDetail: {
+            /** Line Item Id */
+            line_item_id: number;
+            /** Receipt Id */
+            receipt_id: number;
+            /** Description */
+            description: string;
+            /** Amount Cents */
+            amount_cents: number;
+            /** Currency */
+            currency: string | null;
+            /** Merchant */
+            merchant: string | null;
+            /** Receipt Date */
+            receipt_date: string | null;
+            /** Category */
+            category: string | null;
+        };
+        /** OutboundRequestCreate */
+        OutboundRequestCreate: {
+            /** External Payer */
+            external_payer: string;
+            /** Line Item Ids */
+            line_item_ids: number[];
+        };
+        /** OutboundRequestDetail */
+        OutboundRequestDetail: {
+            /** Id */
+            id: number;
+            /** External Payer */
+            external_payer: string | null;
+            /** Synopsis */
+            synopsis: string | null;
+            /** Subject */
+            subject: string | null;
+            /** Body */
+            body: string | null;
+            status: components["schemas"]["OutboundRequestStatus"];
+            generation_status: components["schemas"]["ExtractionStatus"];
+            /** Generation Error */
+            generation_error: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Sent At */
+            sent_at: string | null;
+            /** Items */
+            items: components["schemas"]["OutboundItemDetail"][];
+        };
+        /**
+         * OutboundRequestStatus
+         * @enum {string}
+         */
+        OutboundRequestStatus: "draft" | "generated" | "sent";
+        /** OutboundRequestUpdate */
+        OutboundRequestUpdate: {
+            /** External Payer */
+            external_payer?: string | null;
+            /** Synopsis */
+            synopsis?: string | null;
+            /** Subject */
+            subject?: string | null;
+            /** Body */
+            body?: string | null;
         };
         /** ReceiptConfirmation */
         ReceiptConfirmation: {
@@ -554,6 +675,156 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_outbound_requests_outbound_requests_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutboundRequestDetail"][];
+                };
+            };
+        };
+    };
+    create_outbound_request_outbound_requests_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OutboundRequestCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutboundRequestDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_outbound_request_outbound_requests__request_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutboundRequestDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_outbound_request_outbound_requests__request_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OutboundRequestUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutboundRequestDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_outbound_request_sent_outbound_requests__request_id__mark_sent_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutboundRequestDetail"];
+                };
             };
             /** @description Validation Error */
             422: {

@@ -2,10 +2,11 @@ import os
 
 from arq.connections import RedisSettings
 from shared.categorization import CategorizationInput, OpenAiCategorizationProvider
-from shared.enums import ExtractionStatus
-from shared.models import Category, LineItem, Receipt
+from shared.enums import ExtractionStatus, OutboundRequestStatus
+from shared.models import Category, LineItem, OutboundRequest, OutboundRequestItem, Receipt
 from shared.ocr import AzureDocumentIntelligenceOcrProvider, extraction_as_json
 from shared.storage import object_storage_from_environment
+from shared.synopsis import OpenAiSynopsisProvider, OutboundItem
 from shared.taxonomy import UNCATEGORIZED
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -129,6 +130,66 @@ async def categorize_receipt(_: dict[object, object], receipt_id: int) -> None:
         await engine.dispose()
 
 
+async def generate_outbound_request(_: dict[object, object], request_id: int) -> None:
+    """Generate an individual-mode email artifact without blocking the API request."""
+    engine = create_async_engine(os.environ["DATABASE_URL"])
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        async with sessions() as session:
+            outbound = await session.get(OutboundRequest, request_id)
+            if outbound is None or outbound.generation_status is ExtractionStatus.SUCCEEDED:
+                return
+            outbound.generation_status = ExtractionStatus.PROCESSING
+            outbound.generation_error = None
+            rows = (
+                await session.execute(
+                    select(LineItem, Receipt, Category.name)
+                    .join(OutboundRequestItem, OutboundRequestItem.line_item_id == LineItem.id)
+                    .join(Receipt, Receipt.id == LineItem.receipt_id)
+                    .outerjoin(Category, Category.id == LineItem.category_id)
+                    .where(OutboundRequestItem.outbound_request_id == request_id)
+                    .order_by(Receipt.date, Receipt.id, LineItem.id)
+                )
+            ).all()
+            payer = outbound.external_payer
+            await session.commit()
+        if not payer:
+            raise RuntimeError("Outbound request has no external payer")
+        artifact = await OpenAiSynopsisProvider.from_environment().generate(
+            payer,
+            [
+                OutboundItem(
+                    item.description,
+                    item.amount_cents,
+                    receipt.currency,
+                    receipt.merchant,
+                    receipt.date.isoformat() if receipt.date else None,
+                    category,
+                )
+                for item, receipt, category in rows
+            ],
+        )
+        async with sessions() as session:
+            outbound = await session.get(OutboundRequest, request_id)
+            if outbound is not None:
+                outbound.synopsis = artifact.synopsis
+                outbound.artifact = {"subject": artifact.subject, "body": artifact.body}
+                outbound.status = OutboundRequestStatus.GENERATED
+                outbound.generation_status = ExtractionStatus.SUCCEEDED
+                outbound.generation_error = None
+                await session.commit()
+    except Exception as error:
+        async with sessions() as session:
+            outbound = await session.get(OutboundRequest, request_id)
+            if outbound is not None:
+                outbound.generation_status = ExtractionStatus.FAILED
+                outbound.generation_error = str(error)[:1000]
+                await session.commit()
+        raise
+    finally:
+        await engine.dispose()
+
+
 class WorkerSettings:
-    functions = [extract_receipt, categorize_receipt]
+    functions = [extract_receipt, categorize_receipt, generate_outbound_request]
     redis_settings = RedisSettings()
