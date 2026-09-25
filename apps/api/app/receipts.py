@@ -1,27 +1,20 @@
 import mimetypes
-import os
 import uuid
 from datetime import UTC, datetime
-from typing import Annotated, Protocol
+from typing import Annotated
 
-from arq import create_pool
-from arq.connections import RedisSettings
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel, Field, model_validator
-from shared.enums import ExtractionStatus, UserRole
-from shared.models import Category, LineItem, Receipt, User
+from shared.enums import ExtractionStatus
+from shared.models import Category, LineItem, Receipt
 from shared.storage import ObjectStorage, object_storage_from_environment
 from sqlalchemy import select
 
 from app.database import session_factory
+from app.jobs import enqueue
+from app.ownership import development_owner_id
 
 router = APIRouter(prefix="/receipts", tags=["receipts"])
-
-
-class JobQueue(Protocol):
-    async def enqueue_job(self, function: str, *args: object) -> object: ...
-
-    async def close(self) -> None: ...
 
 
 class ReceiptCreated(BaseModel):
@@ -63,18 +56,6 @@ def object_storage(request: Request) -> ObjectStorage:
     return storage if storage is not None else object_storage_from_environment()
 
 
-async def development_owner_id() -> int:
-    """Temporary no-auth owner for P1; replaced by the authenticated subject in P5."""
-    async with session_factory()() as session:
-        owner = await session.scalar(select(User).where(User.email == "local@reimburst.test"))
-        if owner is None:
-            owner = User(email="local@reimburst.test", role=UserRole.INDIVIDUAL)
-            session.add(owner)
-            await session.commit()
-            await session.refresh(owner)
-        return owner.id
-
-
 @router.post("", response_model=ReceiptCreated, status_code=status.HTTP_202_ACCEPTED)
 async def create_receipt(
     request: Request,
@@ -101,21 +82,13 @@ async def create_receipt(
         await session.commit()
         await session.refresh(receipt)
 
-    queue: JobQueue | None = getattr(request.app.state, "job_queue", None)
-    close_queue = False
-    if queue is None:
-        redis_url = os.environ.get("REDIS_URL")
-        if not redis_url:
-            raise HTTPException(
-                status_code=503, detail="Receipt processing is temporarily unavailable"
-            )
-        queue = await create_pool(RedisSettings.from_dsn(redis_url))
-        close_queue = True
-    try:
-        await queue.enqueue_job("extract_receipt", receipt.id, content_type)
-    finally:
-        if close_queue:
-            await queue.close()
+    await enqueue(
+        request,
+        "extract_receipt",
+        receipt.id,
+        content_type,
+        unavailable_detail="Receipt processing is temporarily unavailable",
+    )
     return ReceiptCreated(
         id=receipt.id, image_key=receipt.image_key, extraction_status=receipt.extraction_status
     )

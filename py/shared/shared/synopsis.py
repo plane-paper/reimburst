@@ -1,12 +1,11 @@
 """LLM-backed outbound reimbursement request synopsis generation."""
 
-import asyncio
 import json
 import os
 from dataclasses import dataclass
 from typing import Any
 
-from shared.categorization import OpenAiCategorizationProvider
+from shared.openai import OpenAiResponsesProvider
 
 
 @dataclass(frozen=True)
@@ -97,7 +96,7 @@ class OpenAiSynopsisProvider(OpenAiCategorizationProvider):
                 }
             },
         }
-        response = await asyncio.to_thread(self._post, payload)
+        response = await self.post(payload)
         output = response.get("output_text")
         try:
             value = json.loads(output) if isinstance(output, str) else None
