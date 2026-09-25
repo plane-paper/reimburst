@@ -1,12 +1,11 @@
 """LLM-backed outbound reimbursement request synopsis generation."""
 
-import asyncio
 import json
 import os
 from dataclasses import dataclass
 from typing import Any
 
-from shared.categorization import OpenAiCategorizationProvider
+from shared.openai import OpenAiResponsesProvider
 
 
 @dataclass(frozen=True)
@@ -39,8 +38,8 @@ def artifact_schema() -> dict[str, Any]:
     }
 
 
-class OpenAiSynopsisProvider(OpenAiCategorizationProvider):
-    """Responses API provider kept deliberately small alongside categorization."""
+class OpenAiSynopsisProvider(OpenAiResponsesProvider):
+    """Responses API provider for outbound reimbursement drafts."""
 
     @classmethod
     def from_environment(cls) -> "OpenAiSynopsisProvider":
@@ -78,7 +77,7 @@ class OpenAiSynopsisProvider(OpenAiCategorizationProvider):
                 }
             },
         }
-        response = await asyncio.to_thread(self._post, payload)
+        response = await self.post(payload)
         output = response.get("output_text")
         try:
             value = json.loads(output) if isinstance(output, str) else None

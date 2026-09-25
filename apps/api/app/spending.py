@@ -6,12 +6,11 @@ from typing import Literal, cast
 
 from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel
-from shared.enums import UserRole
-from shared.models import Category, LineItem, Receipt, User
+from shared.models import Category, LineItem, Receipt
 from sqlalchemy import Select, select
 
 from app.database import session_factory
-from app.receipts import development_owner_id
+from app.ownership import individual_owner_id
 
 router = APIRouter(prefix="/spending", tags=["spending"])
 
@@ -79,13 +78,8 @@ async def personal_spending_items(
 ) -> list[SpendingItem]:
     if start_date is not None and end_date is not None and start_date > end_date:
         raise HTTPException(status_code=422, detail="start_date must be on or before end_date")
-    owner_id = await development_owner_id()
+    owner_id = await individual_owner_id("Personal spending")
     async with session_factory()() as session:
-        owner = await session.get(User, owner_id)
-        if owner is None or owner.role is not UserRole.INDIVIDUAL:
-            raise HTTPException(
-                status_code=403, detail="Personal spending is only available to individuals"
-            )
         rows = (
             await session.execute(
                 spending_statement(

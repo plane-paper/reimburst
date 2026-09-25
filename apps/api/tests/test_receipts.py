@@ -87,6 +87,11 @@ class FakeSession:
 def test_upload_persists_pending_receipt_and_enqueues_extraction(monkeypatch) -> None:
     session = FakeSession()
     monkeypatch.setattr(receipts, "session_factory", lambda: lambda: session)
+
+    async def development_owner_id() -> int:
+        return session.owner.id
+
+    monkeypatch.setattr(receipts, "development_owner_id", development_owner_id)
     storage = FakeStorage()
     queue = FakeQueue()
     app.state.object_storage = storage
