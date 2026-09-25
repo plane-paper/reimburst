@@ -273,7 +273,7 @@ All monetary columns are integer cents. `status` and `role` are enums. Receipts 
 | **P1** | Core extraction | **Complete (2026-09-22):** the single-user upload → storage → ARQ → Azure OCR → persisted/displayed breakdown slice is implemented and locally checked. Deployment configuration and live external-service validation remain. *(`FR-OCR-*`)* | 2–3 weeks |
 | **P2** | Categorization + editable confirmation | **Complete (2026-09-22):** taxonomy-constrained categorization, editable review, explicit reconciliation acknowledgement, and persisted confirmed breakdowns are implemented and locally checked. *(`FR-CAT-*`, `FR-CONF-*`)* | 1–2 weeks |
 | **P3** | Individual mode | **Complete (2026-09-24):** personal spending history and CSV reports; confirmed-item selection across receipts; asynchronous LLM synopsis and editable outbound email artifact; user-driven copy/download and sent tracking with request history. Self-contained; needs no approver or payroll. *(`FR-IND-*`, `FR-SYN-*`, `FR-FE-IND`)* | 2–3 weeks |
-| **P4** | Org workflow | State machine, approver view, synopsis in org context, audit log on transitions. *(`FR-WF-*`, `FR-SYN-*`, `FR-FE-ORG`)* | 2–3 weeks |
+| **P4** | Org workflow | **In progress (2026-09-24):** backend state machine, draft/submission and approver APIs, asynchronous organization synopsis, and immutable transition audits are implemented. Authenticated RBAC and organization views remain. *(`FR-WF-*`, `FR-SYN-*`, `FR-FE-ORG`)* | 2–3 weeks |
 | **P5** | Auth, RBAC, notifications, polish | Auth + role gating (individual vs org roles), notifications, audit trail view, error states. *(`FR-AUTH-01/02`, `FR-NOTE-*`)* | 1–2 weeks |
 | **P6** | Payout & integration | `PayrollProvider` with CSV fallback first, then Employment Hero adapter (idempotent). *(`FR-PAY-*`, `INT-01`)* | 2–4 weeks (high variance) |
 | **P7 (DEFERRED)** | Multi-tenant + SSO/SAML + Workday | Tenant scoping, WorkOS SSO, org management, Workday adapter. *(`FR-AUTH-03/04`, `INT-02`)* | — |
@@ -287,6 +287,15 @@ All monetary columns are integer cents. `status` and `role` are enums. Receipts 
 ## 9. Where We Left Off
 
 **Current phase: P4 — Organization workflow (2026-09-24).** P1–P3 are complete. The upload → storage → ARQ extraction → categorization → editable, reconciled confirmation path is accepted as the completed shared capture slice; deployed end-to-end validation remains an operational follow-up.
+
+### P4 backend slice delivered — organization request workflow
+
+- `POST /organization/requests` creates an employee-owned `draft` from one or more confirmed, unassigned receipts. The API requires receipt ownership and a single explicit currency, preserving the confirmed receipt data as the request basis.
+- `POST /organization/requests/{id}/submit` implements `draft → submitted`, records an append-only `audit_events` row, and enqueues `generate_reimbursement_synopsis`. The ARQ worker uses structured output to store a neutral approver-facing synopsis and exposes `pending` / `processing` / `succeeded` / `failed` status and recoverable error data on the request (`FR-WF-01`, `FR-WF-03`, `FR-SYN-01`, `FR-SYN-02`).
+- `GET /organization/requests/pending` provides the approver queue. `POST /organization/requests/{id}/approve` and `/reject` accept an optional note and apply only valid state transitions; self-approval is checked in the workflow layer. Request detail includes receipt IDs, synopsis state, and chronological audit events (`FR-WF-02` through `FR-WF-04`).
+- This P4 backend uses intentionally isolated seeded development employee and approver identities. Production authentication and authenticated RBAC are P5 work; the P4 organization views and receipt-detail presentation are still frontend work.
+
+**P4 status: in progress.** The workflow backend slice is implemented and locally checked. The organization frontend, real auth/RBAC, notifications, and paid transition through payout dispatch remain for P4–P6.
 
 ### P3 stage 1 delivered — personal spending history and CSV reports
 
