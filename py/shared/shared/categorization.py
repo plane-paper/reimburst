@@ -1,13 +1,11 @@
 """LLM-backed, taxonomy-constrained receipt line-item categorization."""
 
-import asyncio
 import json
 import os
 from dataclasses import dataclass
 from typing import Any, Protocol
-from urllib.error import HTTPError
-from urllib.request import Request, urlopen
 
+from shared.openai import OpenAiResponsesProvider
 from shared.taxonomy import UNCATEGORIZED
 
 
@@ -91,7 +89,7 @@ def parse_categorizations(
     ]
 
 
-class OpenAiCategorizationProvider:
+class OpenAiCategorizationProvider(OpenAiResponsesProvider):
     """OpenAI Responses API implementation using Structured Outputs."""
 
     def __init__(self, api_key: str, model: str) -> None:
@@ -147,7 +145,7 @@ class OpenAiCategorizationProvider:
                 }
             },
         }
-        response = await asyncio.to_thread(self._post, request_body)
+        response = await self.post(request_body)
         output_text = response.get("output_text")
         if not isinstance(output_text, str):
             raise RuntimeError("OpenAI categorization returned no text output")
@@ -158,23 +156,3 @@ class OpenAiCategorizationProvider:
         if not isinstance(payload, dict):
             raise RuntimeError("OpenAI categorization returned an invalid payload")
         return parse_categorizations(payload, items, taxonomy)
-
-    def _post(self, payload: dict[str, Any]) -> dict[str, Any]:
-        request = Request(
-            "https://api.openai.com/v1/responses",
-            data=json.dumps(payload).encode(),
-            headers={
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json",
-            },
-            method="POST",
-        )
-        try:
-            with urlopen(request, timeout=30) as response:  # noqa: S310 - fixed API endpoint
-                result = json.loads(response.read())
-        except HTTPError as error:
-            detail = error.read().decode("utf-8", errors="replace")
-            raise RuntimeError(f"OpenAI categorization returned {error.code}: {detail}") from error
-        if not isinstance(result, dict):
-            raise RuntimeError("OpenAI categorization returned an invalid response")
-        return result

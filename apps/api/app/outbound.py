@@ -1,25 +1,16 @@
-import os
 from datetime import UTC, date, datetime
-from typing import Protocol
 
-from arq import create_pool
-from arq.connections import RedisSettings
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, Field, model_validator
-from shared.enums import ExtractionStatus, OutboundRequestStatus, UserRole
-from shared.models import Category, LineItem, OutboundRequest, OutboundRequestItem, Receipt, User
+from shared.enums import ExtractionStatus, OutboundRequestStatus
+from shared.models import Category, LineItem, OutboundRequest, OutboundRequestItem, Receipt
 from sqlalchemy import select
 
 from app.database import session_factory
-from app.receipts import development_owner_id
+from app.jobs import enqueue
+from app.ownership import individual_owner_id
 
 router = APIRouter(prefix="/outbound-requests", tags=["outbound requests"])
-
-
-class JobQueue(Protocol):
-    async def enqueue_job(self, function: str, *args: object) -> object: ...
-
-    async def close(self) -> None: ...
 
 
 class OutboundItemDetail(BaseModel):
@@ -63,17 +54,6 @@ class OutboundRequestUpdate(BaseModel):
     synopsis: str | None = Field(default=None, min_length=1)
     subject: str | None = Field(default=None, min_length=1)
     body: str | None = Field(default=None, min_length=1)
-
-
-async def individual_owner_id() -> int:
-    owner_id = await development_owner_id()
-    async with session_factory()() as session:
-        owner = await session.get(User, owner_id)
-        if owner is None or owner.role is not UserRole.INDIVIDUAL:
-            raise HTTPException(
-                status_code=403, detail="Outbound requests are only available to individuals"
-            )
-    return owner_id
 
 
 async def request_detail(request_id: int, owner_id: int) -> OutboundRequestDetail:
@@ -123,7 +103,7 @@ async def request_detail(request_id: int, owner_id: int) -> OutboundRequestDetai
 async def create_outbound_request(
     request: Request, payload: OutboundRequestCreate
 ) -> OutboundRequestDetail:
-    owner_id = await individual_owner_id()
+    owner_id = await individual_owner_id("Outbound requests")
     async with session_factory()() as session:
         rows = (
             await session.execute(
@@ -172,27 +152,18 @@ async def create_outbound_request(
         await session.commit()
         outbound_id = outbound.id
 
-    queue: JobQueue | None = getattr(request.app.state, "job_queue", None)
-    close_queue = False
-    if queue is None:
-        redis_url = os.environ.get("REDIS_URL")
-        if not redis_url:
-            raise HTTPException(
-                status_code=503, detail="Request generation is temporarily unavailable"
-            )
-        queue = await create_pool(RedisSettings.from_dsn(redis_url))
-        close_queue = True
-    try:
-        await queue.enqueue_job("generate_outbound_request", outbound_id)
-    finally:
-        if close_queue:
-            await queue.close()
+    await enqueue(
+        request,
+        "generate_outbound_request",
+        outbound_id,
+        unavailable_detail="Request generation is temporarily unavailable",
+    )
     return await request_detail(outbound_id, owner_id)
 
 
 @router.get("", response_model=list[OutboundRequestDetail])
 async def list_outbound_requests() -> list[OutboundRequestDetail]:
-    owner_id = await individual_owner_id()
+    owner_id = await individual_owner_id("Outbound requests")
     async with session_factory()() as session:
         ids = list(
             await session.scalars(
@@ -206,14 +177,14 @@ async def list_outbound_requests() -> list[OutboundRequestDetail]:
 
 @router.get("/{request_id}", response_model=OutboundRequestDetail)
 async def get_outbound_request(request_id: int) -> OutboundRequestDetail:
-    return await request_detail(request_id, await individual_owner_id())
+    return await request_detail(request_id, await individual_owner_id("Outbound requests"))
 
 
 @router.put("/{request_id}", response_model=OutboundRequestDetail)
 async def update_outbound_request(
     request_id: int, payload: OutboundRequestUpdate
 ) -> OutboundRequestDetail:
-    owner_id = await individual_owner_id()
+    owner_id = await individual_owner_id("Outbound requests")
     if not payload.model_fields_set:
         raise HTTPException(status_code=422, detail="Provide at least one editable field")
     async with session_factory()() as session:
@@ -240,7 +211,7 @@ async def update_outbound_request(
 
 @router.post("/{request_id}/mark-sent", response_model=OutboundRequestDetail)
 async def mark_outbound_request_sent(request_id: int) -> OutboundRequestDetail:
-    owner_id = await individual_owner_id()
+    owner_id = await individual_owner_id("Outbound requests")
     async with session_factory()() as session:
         outbound = await session.get(OutboundRequest, request_id)
         if outbound is None or outbound.user_id != owner_id:
