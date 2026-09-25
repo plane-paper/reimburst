@@ -26,6 +26,16 @@ class OutboundArtifact:
     body: str
 
 
+@dataclass(frozen=True)
+class ReimbursementItem:
+    description: str
+    amount_cents: int
+    currency: str | None
+    merchant: str | None
+    receipt_date: str | None
+    category: str | None
+
+
 def artifact_schema() -> dict[str, Any]:
     return {
         "type": "object",
@@ -36,6 +46,15 @@ def artifact_schema() -> dict[str, Any]:
             "body": {"type": "string"},
         },
         "required": ["synopsis", "subject", "body"],
+    }
+
+
+def synopsis_schema() -> dict[str, Any]:
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {"synopsis": {"type": "string"}},
+        "required": ["synopsis"],
     }
 
 
@@ -89,3 +108,42 @@ class OpenAiSynopsisProvider(OpenAiCategorizationProvider):
         ):
             raise RuntimeError("OpenAI synopsis returned an invalid payload")
         return OutboundArtifact(value["synopsis"], value["subject"], value["body"])
+
+    async def generate_reimbursement_synopsis(self, items: list[ReimbursementItem]) -> str:
+        """Generate an approver-facing summary from frozen confirmed request data."""
+        payload = {
+            "model": self.model,
+            "store": False,
+            "input": [
+                {
+                    "role": "system",
+                    "content": (
+                        "Create a concise, neutral reimbursement-request synopsis for an "
+                        "internal approver. Use only supplied facts and do not invent policy, "
+                        "justification, or payment terms."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": json.dumps({"items": [item.__dict__ for item in items]}),
+                },
+            ],
+            "text": {
+                "format": {
+                    "type": "json_schema",
+                    "name": "reimbursement_synopsis",
+                    "strict": True,
+                    "schema": synopsis_schema(),
+                }
+            },
+        }
+        response = await asyncio.to_thread(self._post, payload)
+        output = response.get("output_text")
+        try:
+            value = json.loads(output) if isinstance(output, str) else None
+        except json.JSONDecodeError as error:
+            raise RuntimeError("OpenAI synopsis returned invalid JSON") from error
+        synopsis = value.get("synopsis") if isinstance(value, dict) else None
+        if not isinstance(synopsis, str):
+            raise RuntimeError("OpenAI synopsis returned an invalid payload")
+        return synopsis

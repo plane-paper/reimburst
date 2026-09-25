@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from app.organization import router as organization_router
 from app.outbound import router as outbound_router
 from app.receipts import router as receipts_router
 from app.spending import router as spending_router
@@ -31,3 +32,4 @@ def health() -> HealthResponse:
 app.include_router(receipts_router)
 app.include_router(spending_router)
 app.include_router(outbound_router)
+app.include_router(organization_router)

@@ -55,6 +55,12 @@ class ReimbursementRequest(Base):
         default=RequestStatus.DRAFT,
     )
     synopsis: Mapped[str | None] = mapped_column(Text)
+    synopsis_status: Mapped[ExtractionStatus] = mapped_column(
+        Enum(ExtractionStatus, name="extraction_status", native_enum=True),
+        default=ExtractionStatus.PENDING,
+        server_default=ExtractionStatus.PENDING.value,
+    )
+    synopsis_error: Mapped[str | None] = mapped_column(Text)
     currency: Mapped[str] = mapped_column(String(3))
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
