@@ -92,10 +92,6 @@ def parse_categorizations(
 class OpenAiCategorizationProvider(OpenAiResponsesProvider):
     """OpenAI Responses API implementation using Structured Outputs."""
 
-    def __init__(self, api_key: str, model: str) -> None:
-        self.api_key = api_key
-        self.model = model
-
     @classmethod
     def from_environment(cls) -> "OpenAiCategorizationProvider":
         api_key = os.environ.get("OPENAI_API_KEY")
