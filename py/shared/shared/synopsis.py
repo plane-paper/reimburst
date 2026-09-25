@@ -57,7 +57,7 @@ def synopsis_schema() -> dict[str, Any]:
     }
 
 
-class OpenAiSynopsisProvider(OpenAiCategorizationProvider):
+class OpenAiSynopsisProvider(OpenAiResponsesProvider):
     """Responses API provider kept deliberately small alongside categorization."""
 
     @classmethod
@@ -136,7 +136,7 @@ class OpenAiSynopsisProvider(OpenAiCategorizationProvider):
                 }
             },
         }
-        response = await asyncio.to_thread(self._post, payload)
+        response = await self.post(payload)
         output = response.get("output_text")
         try:
             value = json.loads(output) if isinstance(output, str) else None
