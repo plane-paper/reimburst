@@ -5,7 +5,7 @@ import pytest
 from app import organization
 from fastapi import HTTPException
 from shared.enums import ExtractionStatus, RequestStatus, UserRole
-from shared.models import AuditEvent, Receipt, ReimbursementRequest, User
+from shared.models import AuditEvent, LineItem, Receipt, ReimbursementRequest, User
 from starlette.requests import Request
 
 
@@ -45,6 +45,45 @@ class WorkflowSession:
         self.commit_count += 1
 
 
+class ExecuteRows:
+    def __init__(self, values: list[tuple[LineItem, str | None]]) -> None:
+        self.values = values
+
+    def all(self) -> list[tuple[LineItem, str | None]]:
+        return self.values
+
+
+class DetailSession:
+    def __init__(
+        self,
+        reimbursement: ReimbursementRequest,
+        receipts: list[Receipt],
+        item_rows: list[tuple[LineItem, str | None]],
+        events: list[AuditEvent],
+    ) -> None:
+        self.reimbursement = reimbursement
+        self.receipts = receipts
+        self.item_rows = item_rows
+        self.events = events
+        self.scalar_calls = 0
+
+    async def __aenter__(self) -> "DetailSession":
+        return self
+
+    async def __aexit__(self, *_: object) -> None:
+        pass
+
+    async def get(self, _: type[ReimbursementRequest], __: int) -> ReimbursementRequest:
+        return self.reimbursement
+
+    async def scalars(self, _: object) -> ScalarRows:
+        self.scalar_calls += 1
+        return ScalarRows(self.receipts if self.scalar_calls == 1 else self.events)  # type: ignore[arg-type]
+
+    async def execute(self, _: object) -> ExecuteRows:
+        return ExecuteRows(self.item_rows)
+
+
 def request_detail(reimbursement: ReimbursementRequest) -> organization.OrganizationRequestDetail:
     return organization.OrganizationRequestDetail(
         id=reimbursement.id,
@@ -55,6 +94,7 @@ def request_detail(reimbursement: ReimbursementRequest) -> organization.Organiza
         synopsis_status=reimbursement.synopsis_status,
         synopsis_error=reimbursement.synopsis_error,
         receipt_ids=[],
+        receipts=[],
         audit_events=[],
     )
 
@@ -108,6 +148,58 @@ def test_submit_transitions_audits_and_enqueues_synopsis(monkeypatch) -> None:
     assert len(session.events) == 1
     assert session.events[0].actor_id == employee.id
     assert session.events[0].payload == {"from_status": "draft", "to_status": "submitted"}
+
+
+def test_request_detail_includes_receipt_breakdown(monkeypatch) -> None:
+    reimbursement = ReimbursementRequest(
+        id=7,
+        org_id=3,
+        employee_id=2,
+        currency="USD",
+        status=RequestStatus.SUBMITTED,
+        synopsis_status=ExtractionStatus.SUCCEEDED,
+        synopsis="Hotel stay for client meeting.",
+    )
+    receipt = Receipt(
+        id=4,
+        owner_id=2,
+        request_id=7,
+        image_key="receipts/hotel.jpg",
+        merchant="Example Hotel",
+        date=datetime(2026, 9, 25, tzinfo=UTC).date(),
+        currency="USD",
+        total_cents=12000,
+        tax_cents=1000,
+    )
+    item = LineItem(
+        id=8,
+        receipt_id=receipt.id,
+        description="One night stay",
+        amount_cents=12000,
+    )
+    session = DetailSession(reimbursement, [receipt], [(item, "hotel")], [])
+    monkeypatch.setattr(organization, "session_factory", lambda: lambda: session)
+
+    detail = asyncio.run(organization.request_detail(reimbursement.id))
+
+    assert detail.receipt_ids == [receipt.id]
+    assert detail.receipts[0].model_dump() == {
+        "id": 4,
+        "image_key": "receipts/hotel.jpg",
+        "merchant": "Example Hotel",
+        "date": datetime(2026, 9, 25, tzinfo=UTC).date(),
+        "total_cents": 12000,
+        "tax_cents": 1000,
+        "currency": "USD",
+        "line_items": [
+            {
+                "id": 8,
+                "description": "One night stay",
+                "amount_cents": 12000,
+                "category": "hotel",
+            }
+        ],
+    }
 
 
 def test_reject_records_approver_note(monkeypatch) -> None:
