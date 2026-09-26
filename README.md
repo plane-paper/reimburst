@@ -51,8 +51,11 @@ Credentials are supplied through boto3's normal AWS credential provider chain
 
 ## Organization workflow backend (P4, in progress)
 
-The backend now exposes the first organization-workflow slice. An employee can
-create a draft from confirmed, unassigned receipts of one currency with
+The backend now exposes the first organization-workflow slice. An employee
+starts the shared capture pipeline through `POST /organization/receipts`; the
+upload is owned by the development employee and follows the same storage and
+ARQ extraction path as individual capture. The employee can then create a draft
+from confirmed, unassigned receipts of one currency with
 `POST /organization/requests`, inspect their drafts with
 `GET /organization/requests/mine`, and submit with
 `POST /organization/requests/{id}/submit`. Submission changes the request from
@@ -66,6 +69,10 @@ Approvers can retrieve the submitted queue through
 note. The enforced workflow is `draft → submitted → approved → paid`, with
 `rejected` reachable only from `submitted`; invalid transitions are rejected and
 every valid transition gets an append-only audit record.
+
+`GET /organization/requests/{id}` returns the synopsis, audit history, and each
+linked receipt's image key, merchant/date/totals/currency, and categorized line
+items for the approver detail experience.
 
 These endpoints currently resolve seeded local employee and approver identities
 only for development. P5 will replace that isolated identity helper with real
