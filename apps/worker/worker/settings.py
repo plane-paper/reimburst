@@ -2,11 +2,18 @@ import os
 
 from arq.connections import RedisSettings
 from shared.categorization import CategorizationInput, OpenAiCategorizationProvider
-from shared.enums import ExtractionStatus, OutboundRequestStatus
-from shared.models import Category, LineItem, OutboundRequest, OutboundRequestItem, Receipt
+from shared.enums import ExtractionStatus, OutboundRequestStatus, RequestStatus
+from shared.models import (
+    Category,
+    LineItem,
+    OutboundRequest,
+    OutboundRequestItem,
+    Receipt,
+    ReimbursementRequest,
+)
 from shared.ocr import AzureDocumentIntelligenceOcrProvider, extraction_as_json
 from shared.storage import object_storage_from_environment
-from shared.synopsis import OpenAiSynopsisProvider, OutboundItem
+from shared.synopsis import OpenAiSynopsisProvider, OutboundItem, ReimbursementItem
 from shared.taxonomy import UNCATEGORIZED
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -190,6 +197,66 @@ async def generate_outbound_request(_: dict[object, object], request_id: int) ->
         await engine.dispose()
 
 
+async def generate_reimbursement_synopsis(_: dict[object, object], request_id: int) -> None:
+    """Generate an approver-facing synopsis after an organization request is submitted."""
+    engine = create_async_engine(os.environ["DATABASE_URL"])
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        async with sessions() as session:
+            reimbursement = await session.get(ReimbursementRequest, request_id)
+            if reimbursement is None or reimbursement.synopsis_status is ExtractionStatus.SUCCEEDED:
+                return
+            if reimbursement.status is not RequestStatus.SUBMITTED:
+                return
+            reimbursement.synopsis_status = ExtractionStatus.PROCESSING
+            reimbursement.synopsis_error = None
+            rows = (
+                await session.execute(
+                    select(LineItem, Receipt, Category.name)
+                    .join(Receipt, Receipt.id == LineItem.receipt_id)
+                    .outerjoin(Category, Category.id == LineItem.category_id)
+                    .where(Receipt.request_id == reimbursement.id)
+                    .order_by(Receipt.date, Receipt.id, LineItem.id)
+                )
+            ).all()
+            await session.commit()
+        synopsis = await OpenAiSynopsisProvider.from_environment().generate_reimbursement_synopsis(
+            [
+                ReimbursementItem(
+                    item.description,
+                    item.amount_cents,
+                    receipt.currency,
+                    receipt.merchant,
+                    receipt.date.isoformat() if receipt.date else None,
+                    category,
+                )
+                for item, receipt, category in rows
+            ]
+        )
+        async with sessions() as session:
+            reimbursement = await session.get(ReimbursementRequest, request_id)
+            if reimbursement is not None:
+                reimbursement.synopsis = synopsis
+                reimbursement.synopsis_status = ExtractionStatus.SUCCEEDED
+                reimbursement.synopsis_error = None
+                await session.commit()
+    except Exception as error:
+        async with sessions() as session:
+            reimbursement = await session.get(ReimbursementRequest, request_id)
+            if reimbursement is not None:
+                reimbursement.synopsis_status = ExtractionStatus.FAILED
+                reimbursement.synopsis_error = str(error)[:1000]
+                await session.commit()
+        raise
+    finally:
+        await engine.dispose()
+
+
 class WorkerSettings:
-    functions = [extract_receipt, categorize_receipt, generate_outbound_request]
+    functions = [
+        extract_receipt,
+        categorize_receipt,
+        generate_outbound_request,
+        generate_reimbursement_synopsis,
+    ]
     redis_settings = RedisSettings()

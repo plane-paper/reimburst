@@ -1,9 +1,13 @@
 import asyncio
+from tempfile import SpooledTemporaryFile
+from typing import BinaryIO, cast
 
 from app import receipts
 from app.main import app
+from fastapi import UploadFile
 from shared.enums import ExtractionStatus, UserRole
 from shared.models import Receipt, User
+from starlette.datastructures import Headers
 from starlette.requests import Request
 
 
@@ -16,14 +20,6 @@ class FakeStorage:
 
     async def get(self, key: str) -> bytes:
         return self.objects[key]
-
-
-class FakeUpload:
-    filename = "receipt.png"
-    content_type = "image/png"
-
-    async def read(self) -> bytes:
-        return b"receipt bytes"
 
 
 class FakeQueue:
@@ -99,7 +95,14 @@ def test_upload_persists_pending_receipt_and_enqueues_extraction(monkeypatch) ->
     try:
         async def run() -> None:
             request = Request({"type": "http", "app": app, "headers": []})
-            image = FakeUpload()
+            upload_buffer = SpooledTemporaryFile()
+            upload_buffer.write(b"receipt bytes")
+            upload_buffer.seek(0)
+            image = UploadFile(
+                file=cast(BinaryIO, upload_buffer),
+                filename="receipt.png",
+                headers=Headers({"content-type": "image/png"}),
+            )
             created = await receipts.create_receipt(request, image)
             assert created.extraction_status.value == "pending"
             assert created.image_key in storage.objects
@@ -126,6 +129,41 @@ def test_upload_persists_pending_receipt_and_enqueues_extraction(monkeypatch) ->
                 },
                 "confirmed_at": None,
             }
+
+        asyncio.run(run())
+    finally:
+        del app.state.object_storage
+        del app.state.job_queue
+
+
+def test_organization_upload_assigns_receipt_to_development_employee(monkeypatch) -> None:
+    session = FakeSession()
+    monkeypatch.setattr(receipts, "session_factory", lambda: lambda: session)
+    employee = User(id=9, email="local-employee@reimburst.test", role=UserRole.EMPLOYEE)
+
+    async def development_organization_actor(_: UserRole) -> User:
+        return employee
+
+    monkeypatch.setattr(receipts, "development_organization_actor", development_organization_actor)
+    storage = FakeStorage()
+    queue = FakeQueue()
+    app.state.object_storage = storage
+    app.state.job_queue = queue
+    try:
+        async def run() -> None:
+            request = Request({"type": "http", "app": app, "headers": []})
+            upload_buffer = SpooledTemporaryFile()
+            upload_buffer.write(b"organization receipt bytes")
+            upload_buffer.seek(0)
+            image = UploadFile(
+                file=cast(BinaryIO, upload_buffer),
+                filename="receipt.jpg",
+                headers=Headers({"content-type": "image/jpeg"}),
+            )
+            created = await receipts.create_organization_receipt(request, image)
+            assert session.receipt is not None
+            assert session.receipt.owner_id == employee.id
+            assert queue.jobs == [("extract_receipt", (created.id, "image/jpeg"))]
 
         asyncio.run(run())
     finally:
