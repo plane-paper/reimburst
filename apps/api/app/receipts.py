@@ -5,16 +5,17 @@ from typing import Annotated
 
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel, Field, model_validator
-from shared.enums import ExtractionStatus
+from shared.enums import ExtractionStatus, UserRole
 from shared.models import Category, LineItem, Receipt
 from shared.storage import ObjectStorage, object_storage_from_environment
 from sqlalchemy import select
 
 from app.database import session_factory
 from app.jobs import enqueue
-from app.ownership import development_owner_id
+from app.ownership import development_organization_actor, development_owner_id
 
 router = APIRouter(prefix="/receipts", tags=["receipts"])
+organization_router = APIRouter(prefix="/organization/receipts", tags=["organization receipts"])
 
 
 class ReceiptCreated(BaseModel):
@@ -56,11 +57,12 @@ def object_storage(request: Request) -> ObjectStorage:
     return storage if storage is not None else object_storage_from_environment()
 
 
-@router.post("", response_model=ReceiptCreated, status_code=status.HTTP_202_ACCEPTED)
-async def create_receipt(
+async def create_receipt_for_owner(
     request: Request,
-    image: Annotated[UploadFile, File(description="Receipt image to extract")],
+    image: UploadFile,
+    owner_id: int,
 ) -> ReceiptCreated:
+    """Store and enqueue an upload for a caller whose identity is already resolved."""
     content_type = image.content_type or mimetypes.guess_type(image.filename or "")[0]
     if content_type not in {"image/jpeg", "image/png", "image/webp"}:
         raise HTTPException(status_code=415, detail="Upload a JPEG, PNG, or WebP receipt image")
@@ -75,7 +77,6 @@ async def create_receipt(
     image_key = f"receipts/{uuid.uuid4()}{suffix}"
     await object_storage(request).put(image_key, content)
 
-    owner_id = await development_owner_id()
     async with session_factory()() as session:
         receipt = Receipt(owner_id=owner_id, image_key=image_key)
         session.add(receipt)
@@ -92,6 +93,24 @@ async def create_receipt(
     return ReceiptCreated(
         id=receipt.id, image_key=receipt.image_key, extraction_status=receipt.extraction_status
     )
+
+
+@router.post("", response_model=ReceiptCreated, status_code=status.HTTP_202_ACCEPTED)
+async def create_receipt(
+    request: Request,
+    image: Annotated[UploadFile, File(description="Receipt image to extract")],
+) -> ReceiptCreated:
+    return await create_receipt_for_owner(request, image, await development_owner_id())
+
+
+@organization_router.post("", response_model=ReceiptCreated, status_code=status.HTTP_202_ACCEPTED)
+async def create_organization_receipt(
+    request: Request,
+    image: Annotated[UploadFile, File(description="Receipt image to extract")],
+) -> ReceiptCreated:
+    """Capture a receipt owned by the development employee for the P4 workflow."""
+    employee = await development_organization_actor(UserRole.EMPLOYEE)
+    return await create_receipt_for_owner(request, image, employee.id)
 
 
 class CategoryDetail(BaseModel):

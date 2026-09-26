@@ -1,32 +1,24 @@
 """Development-facing organization reimbursement workflow endpoints.
 
-P5 replaces ``development_actor`` with an authenticated principal dependency.
+P5 replaces the development actor dependency with an authenticated principal.
 All workflow authorization checks remain here so that replacement does not
 change the state machine's security rules.
 """
 
-import os
 from datetime import datetime
-from typing import Protocol
 
-from arq import create_pool
-from arq.connections import RedisSettings
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, Field, model_validator
 from shared.enums import ExtractionStatus, RequestStatus, UserRole
-from shared.models import AuditEvent, Organization, Receipt, ReimbursementRequest, User
+from shared.models import AuditEvent, Receipt, ReimbursementRequest
 from shared.workflow import InvalidRequestTransition, transition_audit_event
 from sqlalchemy import select
 
 from app.database import session_factory
+from app.jobs import enqueue
+from app.ownership import development_organization_actor
 
 router = APIRouter(prefix="/organization/requests", tags=["organization requests"])
-
-
-class JobQueue(Protocol):
-    async def enqueue_job(self, function: str, *args: object) -> object: ...
-
-    async def close(self) -> None: ...
 
 
 class OrganizationRequestCreate(BaseModel):
@@ -61,25 +53,6 @@ class OrganizationRequestDetail(BaseModel):
     synopsis_error: str | None
     receipt_ids: list[int]
     audit_events: list[AuditEventDetail]
-
-
-async def development_actor(role: UserRole) -> User:
-    """Temporary P4 identity source, intentionally isolated for P5 auth replacement."""
-    email = f"local-{role.value}@reimburst.test"
-    async with session_factory()() as session:
-        actor = await session.scalar(select(User).where(User.email == email))
-        if actor is not None:
-            return actor
-        organization = await session.scalar(select(Organization).order_by(Organization.id))
-        if organization is None:
-            organization = Organization(name="Development organization")
-            session.add(organization)
-            await session.flush()
-        actor = User(email=email, org_id=organization.id, role=role)
-        session.add(actor)
-        await session.commit()
-        await session.refresh(actor)
-        return actor
 
 
 async def request_detail(request_id: int) -> OrganizationRequestDetail:
@@ -127,7 +100,7 @@ async def request_detail(request_id: int) -> OrganizationRequestDetail:
 async def create_organization_request(
     payload: OrganizationRequestCreate,
 ) -> OrganizationRequestDetail:
-    actor = await development_actor(UserRole.EMPLOYEE)
+    actor = await development_organization_actor(UserRole.EMPLOYEE)
     if actor.org_id is None:
         raise HTTPException(status_code=409, detail="Employee must belong to an organization")
     async with session_factory()() as session:
@@ -168,29 +141,11 @@ async def create_organization_request(
     return await request_detail(request_id)
 
 
-async def enqueue_synopsis(request: Request, request_id: int) -> None:
-    queue: JobQueue | None = getattr(request.app.state, "job_queue", None)
-    close_queue = False
-    if queue is None:
-        redis_url = os.environ.get("REDIS_URL")
-        if not redis_url:
-            raise HTTPException(
-                status_code=503, detail="Synopsis generation is temporarily unavailable"
-            )
-        queue = await create_pool(RedisSettings.from_dsn(redis_url))
-        close_queue = True
-    try:
-        await queue.enqueue_job("generate_reimbursement_synopsis", request_id)
-    finally:
-        if close_queue:
-            await queue.close()
-
-
 @router.post("/{request_id}/submit", response_model=OrganizationRequestDetail)
 async def submit_organization_request(
     request_id: int, request: Request
 ) -> OrganizationRequestDetail:
-    actor = await development_actor(UserRole.EMPLOYEE)
+    actor = await development_organization_actor(UserRole.EMPLOYEE)
     async with session_factory()() as session:
         reimbursement = await session.get(ReimbursementRequest, request_id)
         if reimbursement is None or reimbursement.org_id != actor.org_id:
@@ -215,13 +170,18 @@ async def submit_organization_request(
         reimbursement.synopsis_error = None
         session.add(event)
         await session.commit()
-    await enqueue_synopsis(request, request_id)
+    await enqueue(
+        request,
+        "generate_reimbursement_synopsis",
+        request_id,
+        unavailable_detail="Synopsis generation is temporarily unavailable",
+    )
     return await request_detail(request_id)
 
 
 @router.get("/pending", response_model=list[OrganizationRequestDetail])
 async def pending_organization_requests() -> list[OrganizationRequestDetail]:
-    actor = await development_actor(UserRole.APPROVER)
+    actor = await development_organization_actor(UserRole.APPROVER)
     async with session_factory()() as session:
         request_ids = list(
             await session.scalars(
@@ -253,7 +213,7 @@ async def reject_organization_request(
 async def review_organization_request(
     request_id: int, target_status: RequestStatus, note: str | None
 ) -> OrganizationRequestDetail:
-    actor = await development_actor(UserRole.APPROVER)
+    actor = await development_organization_actor(UserRole.APPROVER)
     async with session_factory()() as session:
         reimbursement = await session.get(ReimbursementRequest, request_id)
         if reimbursement is None or reimbursement.org_id != actor.org_id:
@@ -276,7 +236,7 @@ async def review_organization_request(
 
 @router.get("/mine", response_model=list[OrganizationRequestDetail])
 async def my_organization_requests() -> list[OrganizationRequestDetail]:
-    actor = await development_actor(UserRole.EMPLOYEE)
+    actor = await development_organization_actor(UserRole.EMPLOYEE)
     async with session_factory()() as session:
         request_ids = list(
             await session.scalars(
@@ -290,7 +250,7 @@ async def my_organization_requests() -> list[OrganizationRequestDetail]:
 
 @router.get("/{request_id}", response_model=OrganizationRequestDetail)
 async def get_organization_request(request_id: int) -> OrganizationRequestDetail:
-    actor = await development_actor(UserRole.EMPLOYEE)
+    actor = await development_organization_actor(UserRole.EMPLOYEE)
     async with session_factory()() as session:
         reimbursement = await session.get(ReimbursementRequest, request_id)
         if reimbursement is None or reimbursement.org_id != actor.org_id:
