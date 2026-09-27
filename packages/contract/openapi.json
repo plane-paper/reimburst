@@ -138,8 +138,210 @@
           "receipts"
         ],
         "summary": "Confirm Receipt",
-        "description": "Persist the reviewed breakdown, requiring an explicit mismatch acknowledgement.",
         "operationId": "confirm_receipt_receipts__receipt_id__confirmation_put",
+        "parameters": [
+          {
+            "name": "receipt_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Receipt Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReceiptConfirmation"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organization/receipts": {
+      "post": {
+        "tags": [
+          "organization receipts"
+        ],
+        "summary": "Create Organization Receipt",
+        "description": "Capture a receipt owned by the development employee for the P4 workflow.",
+        "operationId": "create_organization_receipt_organization_receipts_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_create_organization_receipt_organization_receipts_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptCreated"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organization/receipts/{receipt_id}/image": {
+      "get": {
+        "tags": [
+          "organization receipts"
+        ],
+        "summary": "Organization Receipt Image",
+        "description": "Serve a receipt image to an organization member during local P4 development.",
+        "operationId": "organization_receipt_image_organization_receipts__receipt_id__image_get",
+        "parameters": [
+          {
+            "name": "receipt_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Receipt Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "image/jpeg": {},
+              "image/png": {},
+              "image/webp": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organization/receipts/available": {
+      "get": {
+        "tags": [
+          "organization receipts"
+        ],
+        "summary": "Available Organization Receipts",
+        "description": "Return confirmed employee receipts that can still be added to a draft.",
+        "operationId": "available_organization_receipts_organization_receipts_available_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ReceiptDetail"
+                  },
+                  "type": "array",
+                  "title": "Response Available Organization Receipts Organization Receipts Available Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organization/receipts/{receipt_id}": {
+      "get": {
+        "tags": [
+          "organization receipts"
+        ],
+        "summary": "Get Organization Receipt",
+        "operationId": "get_organization_receipt_organization_receipts__receipt_id__get",
+        "parameters": [
+          {
+            "name": "receipt_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Receipt Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organization/receipts/{receipt_id}/confirmation": {
+      "put": {
+        "tags": [
+          "organization receipts"
+        ],
+        "summary": "Confirm Organization Receipt",
+        "operationId": "confirm_organization_receipt_organization_receipts__receipt_id__confirmation_put",
         "parameters": [
           {
             "name": "receipt_id",
@@ -687,10 +889,391 @@
           }
         }
       }
+    },
+    "/organization/requests": {
+      "post": {
+        "tags": [
+          "organization requests"
+        ],
+        "summary": "Create Organization Request",
+        "operationId": "create_organization_request_organization_requests_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrganizationRequestCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationRequestDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organization/requests/{request_id}/submit": {
+      "post": {
+        "tags": [
+          "organization requests"
+        ],
+        "summary": "Submit Organization Request",
+        "operationId": "submit_organization_request_organization_requests__request_id__submit_post",
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Request Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationRequestDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organization/requests/{request_id}/retry-synopsis": {
+      "post": {
+        "tags": [
+          "organization requests"
+        ],
+        "summary": "Retry Organization Synopsis",
+        "description": "Retry a failed asynchronous synopsis job without changing workflow state.",
+        "operationId": "retry_organization_synopsis_organization_requests__request_id__retry_synopsis_post",
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Request Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationRequestDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organization/requests/pending": {
+      "get": {
+        "tags": [
+          "organization requests"
+        ],
+        "summary": "Pending Organization Requests",
+        "operationId": "pending_organization_requests_organization_requests_pending_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OrganizationRequestDetail"
+                  },
+                  "type": "array",
+                  "title": "Response Pending Organization Requests Organization Requests Pending Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organization/requests/{request_id}/approve": {
+      "post": {
+        "tags": [
+          "organization requests"
+        ],
+        "summary": "Approve Organization Request",
+        "operationId": "approve_organization_request_organization_requests__request_id__approve_post",
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Request Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionNote"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationRequestDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organization/requests/{request_id}/reject": {
+      "post": {
+        "tags": [
+          "organization requests"
+        ],
+        "summary": "Reject Organization Request",
+        "operationId": "reject_organization_request_organization_requests__request_id__reject_post",
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Request Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionNote"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationRequestDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organization/requests/mine": {
+      "get": {
+        "tags": [
+          "organization requests"
+        ],
+        "summary": "My Organization Requests",
+        "operationId": "my_organization_requests_organization_requests_mine_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OrganizationRequestDetail"
+                  },
+                  "type": "array",
+                  "title": "Response My Organization Requests Organization Requests Mine Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organization/requests/{request_id}": {
+      "get": {
+        "tags": [
+          "organization requests"
+        ],
+        "summary": "Get Organization Request",
+        "operationId": "get_organization_request_organization_requests__request_id__get",
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Request Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationRequestDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AuditEventDetail": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "actor_id": {
+            "type": "integer",
+            "title": "Actor Id"
+          },
+          "action": {
+            "type": "string",
+            "title": "Action"
+          },
+          "payload": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payload"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "actor_id",
+          "action",
+          "payload",
+          "created_at"
+        ],
+        "title": "AuditEventDetail"
+      },
+      "Body_create_organization_receipt_organization_receipts_post": {
+        "properties": {
+          "image": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "Image",
+            "description": "Receipt image to extract"
+          }
+        },
+        "type": "object",
+        "required": [
+          "image"
+        ],
+        "title": "Body_create_organization_receipt_organization_receipts_post"
+      },
       "Body_create_receipt_receipts_post": {
         "properties": {
           "image": {
@@ -831,6 +1414,224 @@
           "needs_category_review"
         ],
         "title": "LineItemDetail"
+      },
+      "OrganizationLineItemDetail": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "amount_cents": {
+            "type": "integer",
+            "title": "Amount Cents"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "description",
+          "amount_cents",
+          "category"
+        ],
+        "title": "OrganizationLineItemDetail"
+      },
+      "OrganizationReceiptDetail": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "image_key": {
+            "type": "string",
+            "title": "Image Key"
+          },
+          "merchant": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merchant"
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "total_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Cents"
+          },
+          "tax_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tax Cents"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "line_items": {
+            "items": {
+              "$ref": "#/components/schemas/OrganizationLineItemDetail"
+            },
+            "type": "array",
+            "title": "Line Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "image_key",
+          "merchant",
+          "date",
+          "total_cents",
+          "tax_cents",
+          "currency",
+          "line_items"
+        ],
+        "title": "OrganizationReceiptDetail"
+      },
+      "OrganizationRequestCreate": {
+        "properties": {
+          "receipt_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Receipt Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "receipt_ids"
+        ],
+        "title": "OrganizationRequestCreate"
+      },
+      "OrganizationRequestDetail": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "employee_id": {
+            "type": "integer",
+            "title": "Employee Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RequestStatus"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "synopsis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Synopsis"
+          },
+          "synopsis_status": {
+            "$ref": "#/components/schemas/ExtractionStatus"
+          },
+          "synopsis_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Synopsis Error"
+          },
+          "receipt_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Receipt Ids"
+          },
+          "receipts": {
+            "items": {
+              "$ref": "#/components/schemas/OrganizationReceiptDetail"
+            },
+            "type": "array",
+            "title": "Receipts"
+          },
+          "audit_events": {
+            "items": {
+              "$ref": "#/components/schemas/AuditEventDetail"
+            },
+            "type": "array",
+            "title": "Audit Events"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "employee_id",
+          "status",
+          "currency",
+          "synopsis",
+          "synopsis_status",
+          "synopsis_error",
+          "receipt_ids",
+          "receipts",
+          "audit_events"
+        ],
+        "title": "OrganizationRequestDetail"
       },
       "OutboundItemDetail": {
         "properties": {
@@ -1312,6 +2113,17 @@
         ],
         "title": "ReconciliationDetail"
       },
+      "RequestStatus": {
+        "type": "string",
+        "enum": [
+          "draft",
+          "submitted",
+          "approved",
+          "rejected",
+          "paid"
+        ],
+        "title": "RequestStatus"
+      },
       "SpendingGroup": {
         "properties": {
           "name": {
@@ -1465,6 +2277,24 @@
           "total_cents"
         ],
         "title": "SpendingReport"
+      },
+      "TransitionNote": {
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "title": "TransitionNote"
       },
       "ValidationError": {
         "properties": {

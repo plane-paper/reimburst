@@ -69,6 +69,11 @@ class ConfirmationSession:
 def test_confirmation_requires_explicit_mismatch_acknowledgement(monkeypatch) -> None:
     session = ConfirmationSession()
     monkeypatch.setattr(receipts, "session_factory", lambda: lambda: session)
+
+    async def development_owner_id() -> int:
+        return 1
+
+    monkeypatch.setattr(receipts, "development_owner_id", development_owner_id)
     confirmation = receipts.ReceiptConfirmation(
         line_items=[
             receipts.ConfirmedLineItem(
@@ -89,6 +94,11 @@ def test_confirmation_requires_explicit_mismatch_acknowledgement(monkeypatch) ->
 def test_confirmation_persists_reviewed_items_after_acknowledgement(monkeypatch) -> None:
     session = ConfirmationSession()
     monkeypatch.setattr(receipts, "session_factory", lambda: lambda: session)
+
+    async def development_owner_id() -> int:
+        return 1
+
+    monkeypatch.setattr(receipts, "development_owner_id", development_owner_id)
     confirmation = receipts.ReceiptConfirmation(
         line_items=[
             receipts.ConfirmedLineItem(

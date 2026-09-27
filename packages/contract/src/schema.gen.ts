@@ -83,11 +83,102 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /**
-         * Confirm Receipt
-         * @description Persist the reviewed breakdown, requiring an explicit mismatch acknowledgement.
-         */
+        /** Confirm Receipt */
         put: operations["confirm_receipt_receipts__receipt_id__confirmation_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organization/receipts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Organization Receipt
+         * @description Capture a receipt owned by the development employee for the P4 workflow.
+         */
+        post: operations["create_organization_receipt_organization_receipts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organization/receipts/{receipt_id}/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Organization Receipt Image
+         * @description Serve a receipt image to an organization member during local P4 development.
+         */
+        get: operations["organization_receipt_image_organization_receipts__receipt_id__image_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organization/receipts/available": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Available Organization Receipts
+         * @description Return confirmed employee receipts that can still be added to a draft.
+         */
+        get: operations["available_organization_receipts_organization_receipts_available_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organization/receipts/{receipt_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Organization Receipt */
+        get: operations["get_organization_receipt_organization_receipts__receipt_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organization/receipts/{receipt_id}/confirmation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Confirm Organization Receipt */
+        put: operations["confirm_organization_receipt_organization_receipts__receipt_id__confirmation_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -199,10 +290,175 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organization/requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Organization Request */
+        post: operations["create_organization_request_organization_requests_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organization/requests/{request_id}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Organization Request */
+        post: operations["submit_organization_request_organization_requests__request_id__submit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organization/requests/{request_id}/retry-synopsis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry Organization Synopsis
+         * @description Retry a failed asynchronous synopsis job without changing workflow state.
+         */
+        post: operations["retry_organization_synopsis_organization_requests__request_id__retry_synopsis_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organization/requests/pending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Pending Organization Requests */
+        get: operations["pending_organization_requests_organization_requests_pending_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organization/requests/{request_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve Organization Request */
+        post: operations["approve_organization_request_organization_requests__request_id__approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organization/requests/{request_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject Organization Request */
+        post: operations["reject_organization_request_organization_requests__request_id__reject_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organization/requests/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My Organization Requests */
+        get: operations["my_organization_requests_organization_requests_mine_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organization/requests/{request_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Organization Request */
+        get: operations["get_organization_request_organization_requests__request_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AuditEventDetail */
+        AuditEventDetail: {
+            /** Id */
+            id: number;
+            /** Actor Id */
+            actor_id: number;
+            /** Action */
+            action: string;
+            /** Payload */
+            payload: {
+                [key: string]: string;
+            } | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** Body_create_organization_receipt_organization_receipts_post */
+        Body_create_organization_receipt_organization_receipts_post: {
+            /**
+             * Image
+             * @description Receipt image to extract
+             */
+            image: string;
+        };
         /** Body_create_receipt_receipts_post */
         Body_create_receipt_receipts_post: {
             /**
@@ -256,6 +512,62 @@ export interface components {
             category: string | null;
             /** Needs Category Review */
             needs_category_review: boolean;
+        };
+        /** OrganizationLineItemDetail */
+        OrganizationLineItemDetail: {
+            /** Id */
+            id: number;
+            /** Description */
+            description: string;
+            /** Amount Cents */
+            amount_cents: number;
+            /** Category */
+            category: string | null;
+        };
+        /** OrganizationReceiptDetail */
+        OrganizationReceiptDetail: {
+            /** Id */
+            id: number;
+            /** Image Key */
+            image_key: string;
+            /** Merchant */
+            merchant: string | null;
+            /** Date */
+            date: string | null;
+            /** Total Cents */
+            total_cents: number | null;
+            /** Tax Cents */
+            tax_cents: number | null;
+            /** Currency */
+            currency: string | null;
+            /** Line Items */
+            line_items: components["schemas"]["OrganizationLineItemDetail"][];
+        };
+        /** OrganizationRequestCreate */
+        OrganizationRequestCreate: {
+            /** Receipt Ids */
+            receipt_ids: number[];
+        };
+        /** OrganizationRequestDetail */
+        OrganizationRequestDetail: {
+            /** Id */
+            id: number;
+            /** Employee Id */
+            employee_id: number;
+            status: components["schemas"]["RequestStatus"];
+            /** Currency */
+            currency: string;
+            /** Synopsis */
+            synopsis: string | null;
+            synopsis_status: components["schemas"]["ExtractionStatus"];
+            /** Synopsis Error */
+            synopsis_error: string | null;
+            /** Receipt Ids */
+            receipt_ids: number[];
+            /** Receipts */
+            receipts: components["schemas"]["OrganizationReceiptDetail"][];
+            /** Audit Events */
+            audit_events: components["schemas"]["AuditEventDetail"][];
         };
         /** OutboundItemDetail */
         OutboundItemDetail: {
@@ -380,6 +692,11 @@ export interface components {
             /** Matches */
             matches: boolean;
         };
+        /**
+         * RequestStatus
+         * @enum {string}
+         */
+        RequestStatus: "draft" | "submitted" | "approved" | "rejected" | "paid";
         /** SpendingGroup */
         SpendingGroup: {
             /** Name */
@@ -424,6 +741,11 @@ export interface components {
             groups: components["schemas"]["SpendingGroup"][];
             /** Total Cents */
             total_cents: number;
+        };
+        /** TransitionNote */
+        TransitionNote: {
+            /** Note */
+            note?: string | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -552,6 +874,158 @@ export interface operations {
         };
     };
     confirm_receipt_receipts__receipt_id__confirmation_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                receipt_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReceiptConfirmation"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceiptDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_organization_receipt_organization_receipts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_create_organization_receipt_organization_receipts_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceiptCreated"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    organization_receipt_image_organization_receipts__receipt_id__image_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                receipt_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": unknown;
+                    "image/png": unknown;
+                    "image/webp": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    available_organization_receipts_organization_receipts_available_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceiptDetail"][];
+                };
+            };
+        };
+    };
+    get_organization_receipt_organization_receipts__receipt_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                receipt_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceiptDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_organization_receipt_organization_receipts__receipt_id__confirmation_put: {
         parameters: {
             query?: never;
             header?: never;
@@ -824,6 +1298,242 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OutboundRequestDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_organization_request_organization_requests_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrganizationRequestCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationRequestDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_organization_request_organization_requests__request_id__submit_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationRequestDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retry_organization_synopsis_organization_requests__request_id__retry_synopsis_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationRequestDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pending_organization_requests_organization_requests_pending_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationRequestDetail"][];
+                };
+            };
+        };
+    };
+    approve_organization_request_organization_requests__request_id__approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransitionNote"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationRequestDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reject_organization_request_organization_requests__request_id__reject_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransitionNote"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationRequestDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_organization_requests_organization_requests_mine_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationRequestDetail"][];
+                };
+            };
+        };
+    };
+    get_organization_request_organization_requests__request_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationRequestDetail"];
                 };
             };
             /** @description Validation Error */

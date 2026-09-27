@@ -273,7 +273,7 @@ All monetary columns are integer cents. `status` and `role` are enums. Receipts 
 | **P1** | Core extraction | **Complete (2026-09-22):** the single-user upload → storage → ARQ → Azure OCR → persisted/displayed breakdown slice is implemented and locally checked. Deployment configuration and live external-service validation remain. *(`FR-OCR-*`)* | 2–3 weeks |
 | **P2** | Categorization + editable confirmation | **Complete (2026-09-22):** taxonomy-constrained categorization, editable review, explicit reconciliation acknowledgement, and persisted confirmed breakdowns are implemented and locally checked. *(`FR-CAT-*`, `FR-CONF-*`)* | 1–2 weeks |
 | **P3** | Individual mode | **Complete (2026-09-24):** personal spending history and CSV reports; confirmed-item selection across receipts; asynchronous LLM synopsis and editable outbound email artifact; user-driven copy/download and sent tracking with request history. Self-contained; needs no approver or payroll. *(`FR-IND-*`, `FR-SYN-*`, `FR-FE-IND`)* | 2–3 weeks |
-| **P4** | Org workflow | **In progress (2026-09-25):** backend organization capture, state machine, request/approver APIs, asynchronous organization synopsis, detailed approver data, and immutable transition audits are implemented. Authenticated RBAC and organization views remain. *(`FR-WF-*`, `FR-SYN-*`, `FR-FE-ORG`)* | 2–3 weeks |
+| **P4** | Org workflow | **Complete (2026-09-26):** organization capture, employee draft/submit workflow, asynchronous synopsis with retry, approver queue/detail/decisions, receipt previews, and immutable transition audits. *(`FR-WF-*`, `FR-SYN-*`, `FR-FE-ORG`)* | 2–3 weeks |
 | **P5** | Auth, RBAC, notifications, polish | Auth + role gating (individual vs org roles), notifications, audit trail view, error states. *(`FR-AUTH-01/02`, `FR-NOTE-*`)* | 1–2 weeks |
 | **P6** | Payout & integration | `PayrollProvider` with CSV fallback first, then Employment Hero adapter (idempotent). *(`FR-PAY-*`, `INT-01`)* | 2–4 weeks (high variance) |
 | **P7 (DEFERRED)** | Multi-tenant + SSO/SAML + Workday | Tenant scoping, WorkOS SSO, org management, Workday adapter. *(`FR-AUTH-03/04`, `INT-02`)* | — |
@@ -286,68 +286,17 @@ All monetary columns are integer cents. `status` and `role` are enums. Receipts 
 
 ## 9. Where We Left Off
 
-**Current phase: P4 — Organization workflow (2026-09-24).** P1–P3 are complete. The upload → storage → ARQ extraction → categorization → editable, reconciled confirmation path is accepted as the completed shared capture slice; deployed end-to-end validation remains an operational follow-up.
+**Current phase: P4 — Organization workflow (2026-09-26).** The organization portal is complete against the current development identity model. P5 will replace its seeded employee/approver switch with authenticated RBAC.
 
-### P4 backend slice delivered — organization request workflow
+### P4 delivered — organization capture, employee workflow, and approval
 
-- `POST /organization/requests` creates an employee-owned `draft` from one or more confirmed, unassigned receipts. The API requires receipt ownership and a single explicit currency, preserving the confirmed receipt data as the request basis.
-- `POST /organization/requests/{id}/submit` implements `draft → submitted`, records an append-only `audit_events` row, and enqueues `generate_reimbursement_synopsis`. The ARQ worker uses structured output to store a neutral approver-facing synopsis and exposes `pending` / `processing` / `succeeded` / `failed` status and recoverable error data on the request (`FR-WF-01`, `FR-WF-03`, `FR-SYN-01`, `FR-SYN-02`).
-- `GET /organization/requests/pending` provides the approver queue. `POST /organization/requests/{id}/approve` and `/reject` accept an optional note and apply only valid state transitions; self-approval is checked in the workflow layer. Request detail includes receipt IDs, synopsis state, and chronological audit events (`FR-WF-02` through `FR-WF-04`).
-- This P4 backend uses intentionally isolated seeded development employee and approver identities. Production authentication and authenticated RBAC are P5 work; the P4 organization views and receipt-detail presentation are still frontend work.
+- `/organization` provides the employee and approver views. Employees can capture and confirm organization-owned receipts, select confirmed unassigned receipts in one currency, create a draft, inspect the detailed request, and submit it. The home portal links directly to this workspace.
+- The employee request detail displays the asynchronous synopsis state, receipt images, categorized line-item breakdowns, and chronological audit trail. A failed synopsis can be retried through `POST /organization/requests/{id}/retry-synopsis` without changing the workflow state.
+- The approver queue displays submitted requests with the submitter, receipt images, line items, synopsis, and audit history. Approvers can approve or reject with an optional note; workflow validation and self-approval protection remain enforced by the backend.
+- `GET /organization/receipts/{id}` and `PUT /organization/receipts/{id}/confirmation` use the same scoped development actor as organization upload, so the employee capture flow never falls back to the individual receipt routes. `GET /organization/receipts/available` supplies only that actor's confirmed, unassigned receipts, and `GET /organization/receipts/{id}/image` serves its protected local-development preview. The generated OpenAPI contract includes all organization routes.
+- Seeded organization identities are explicitly opt-in with `DEVELOPMENT_ORGANIZATION_ROUTES=true`; organization routes are disabled by default until P5 authenticates and authorizes the caller.
 
-**P4 status: in progress.** The workflow backend slice is implemented and locally checked. The organization frontend, real auth/RBAC, notifications, and paid transition through payout dispatch remain for P4–P6.
-
-### P4 backend follow-up — organization capture and approver detail
-
-- `POST /organization/receipts` reuses the shared object-storage and ARQ extraction path while assigning each upload to the local development employee. This makes confirmed receipt capture usable as the input to the organization-request flow without changing individual-mode ownership.
-- Organization request detail now embeds the linked receipt metadata and categorized line items, as well as the existing synopsis and audit events. The pending queue and detail endpoint can therefore supply the backend data needed by an approver review screen (`FR-WF-02`).
-- Focused tests now cover employee organization capture, submission audit and synopsis-job enqueueing, rejection notes, invalid transitions, and the approver receipt-breakdown response.
-
-### P3 stage 1 delivered — personal spending history and CSV reports
-
-- `GET /spending/history` returns only the development individual user's confirmed line items, ordered by receipt date and scoped to that user's receipts. It supports date range, category, and merchant filters.
-- `GET /spending/report` applies the same filters and returns totals grouped by category, merchant, or receipt date. Group totals retain currency, avoiding an implicit cross-currency conversion.
-- `GET /spending/export.csv` exports the filtered personal line-item history with receipt, date, merchant, category, integer-cent amount, and currency fields.
-- The new `/spending` screen exposes the filters, category totals, a confirmed-item table, and a download control; the home-page report action links to it.
-- This completes the foundation for `FR-IND-01`, `FR-IND-02`, and CSV coverage of `FR-IND-03`. PDF export, outbound item selection, synopsis/artifact generation, and request history remain for the following P3 stages.
-
-### P3 complete — outbound reimbursement requests
-
-- `/requests` lets an individual browse confirmed personal line items, select a subset across receipts, see a running total, and provide an external payer (`FR-IND-04`, `FR-FE-14`). Items already covered by generated or sent requests cannot be selected again.
-- `POST /outbound-requests` persists the selected-item join records and enqueues `generate_outbound_request`. The ARQ worker uses OpenAI Structured Outputs to generate and persist a synopsis plus email subject/body, exposing pending, success, and recoverable failure states (`FR-IND-05`, `FR-SYN-01/02`, `FR-FE-04`). `OPENAI_SYNOPSIS_MODEL` defaults to `gpt-4o-mini`.
-- The composition screen allows the payer, synopsis, subject, and body to be edited before sending. It supports copying the email and downloading an `.eml` artifact; it never sends automatically (`FR-IND-06`, `FR-IND-07`, `FR-FE-15`).
-- Generated and sent outbound requests appear in history with their covered items and timestamps. Marking a request sent is a deliberate, idempotent user action (`FR-IND-08`, `FR-FE-16`).
-
-**P3 exit criterion: met.** Individual mode is a shippable standalone flow: capture and confirm receipts, report spending, select reimbursable items, generate and edit an outbound request, send it through the user's own email client, and track the request afterward.
-
-### Completed in P1
-
-- `POST /receipts` accepts JPEG, PNG, and WebP uploads (up to 10 MB), writes the image through the `ObjectStorage` boundary, creates a `receipts` row in `pending`, and enqueues `extract_receipt` in ARQ.
-- Storage is selected by `STORAGE_BACKEND` in both the API and worker: `local` (the default, filesystem-backed `LocalObjectStorage`) for development/tests, or `s3` (`S3ObjectStorage`) for a durable S3-compatible bucket. The production configuration requires `S3_BUCKET`, with optional `S3_ENDPOINT_URL` and `AWS_REGION`; credentials use boto3's standard provider chain. The receipt row persists only an `image_key`.
-- Extraction status, error, currency, extracted fields, raw provider response, and line items are represented in the schema and the `41c1d4a2b0e9` migration.
-- The ARQ worker moves a receipt through `pending → processing → succeeded` or `failed`, retrieves the image, calls Azure Document Intelligence's prebuilt-receipt model through the `OcrProvider` interface, and persists structured data and integer-cent line items.
-- `GET /receipts/{id}` exposes the processing state and persisted breakdown. The Next.js capture screen uploads one receipt with mobile-camera support, polls that endpoint, and displays the merchant, total, and extracted line items.
-- Automated coverage verifies Azure-response parsing, Decimal-to-integer-cent conversion, and the initial workflow handoff: upload → stored image → pending receipt → queued `extract_receipt` job. The OpenAPI contract and generated TypeScript client include the receipt endpoints.
-
-### P2 progress — categorization complete
-
-- The fixed global taxonomy is defined once in `py/shared/shared/taxonomy.py`, seeded by migration `a7f25c8163d1`, and exposed through `GET /receipts/taxonomy`. It includes `hotel`, `food`, `essentials`, `transport`, `office_supplies`, `other`, and `uncategorized`.
-- After OCR persists line items, the ARQ worker runs taxonomy-constrained OpenAI Responses API categorization with strict structured JSON output. `OPENAI_API_KEY` is required; `OPENAI_CATEGORIZATION_MODEL` defaults to `gpt-4o-mini`.
-- Categorization has its own `pending → processing → succeeded/failed` state and error field, so an LLM failure does not discard a successful extraction. The receipt API returns this state along with each item's category and `needs_category_review` flag.
-- Low-confidence, invalid, missing, or ambiguous model results are assigned `uncategorized` and flagged for human review. The capture UI displays categorization progress, failures, and review badges.
-- Automated coverage verifies the strict taxonomy enum and fallback behavior. Ruff, pytest, mypy, generated-contract type checks, and a production web build pass.
-
-### P2 delivered — editable confirmation
-
-- `GET /receipts/{id}` now returns stable line-item IDs, a server-calculated reconciliation result (line-item total, receipt total, difference, match state), and a `confirmed_at` timestamp.
-- The capture review presents an editable, keyboard-labeled table for descriptions, amounts, and taxonomy-constrained categories. Low-confidence/`uncategorized` rows remain visibly flagged until the user reviews them.
-- `PUT /receipts/{id}/confirmation` validates the complete submitted breakdown against the receipt's line items and global taxonomy, persists the approved edits, and clears category-review flags. A confirmation is frozen with `confirmed_at` and cannot be changed through this endpoint.
-- Reconciliation is enforced in both layers. The UI shows a visible difference warning and requires an explicit acknowledgement checkbox; the API independently rejects a mismatch without `acknowledge_reconciliation_mismatch`, so a client cannot silently submit it.
-- Automated tests cover mismatch rejection and acknowledged persistence; Ruff, pytest, mypy, generated-contract type checks, web lint, and the production web build pass.
-
-**P2 exit criterion: met.** Every extracted line item is categorized from the shared taxonomy or safely flagged `uncategorized`; the user can correct the full breakdown; and reconciliation visibly prevents silent confirmation when totals do not match.
-
-**Remaining operational follow-up (P1):** validate the deployed browser → storage → worker path against real receipts and record both success and recoverable failure behavior. This is not a blocker for P3.
+**P4 exit criterion: met.** The shared capture pipeline now supports the complete internal request path: capture and confirm → draft → submit → asynchronous synopsis → approver review → approve or reject, with receipt detail and immutable audit history visible in the portal. Authentication/RBAC and notifications remain P5 work; payout dispatch remains P6 work.
 
 ---
 

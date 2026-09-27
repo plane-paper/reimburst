@@ -264,3 +264,79 @@ def test_approver_cannot_transition_draft_request(monkeypatch) -> None:
 
     assert error.value.status_code == 409
     assert session.events == []
+
+
+def test_employee_can_retry_failed_synopsis(monkeypatch) -> None:
+    reimbursement = ReimbursementRequest(
+        id=7,
+        org_id=3,
+        employee_id=2,
+        currency="USD",
+        status=RequestStatus.SUBMITTED,
+        synopsis_status=ExtractionStatus.FAILED,
+        synopsis_error="provider unavailable",
+    )
+    session = WorkflowSession(reimbursement, [])
+    employee = User(id=2, org_id=3, email="employee@example.test", role=UserRole.EMPLOYEE)
+    queued: list[tuple[str, tuple[object, ...]]] = []
+
+    async def actor(_: UserRole) -> User:
+        return employee
+
+    async def detail(_: int) -> organization.OrganizationRequestDetail:
+        return request_detail(reimbursement)
+
+    async def enqueue(_: Request, function: str, *args: object, unavailable_detail: str) -> None:
+        queued.append((function, args))
+
+    monkeypatch.setattr(organization, "session_factory", lambda: lambda: session)
+    monkeypatch.setattr(organization, "development_organization_actor", actor)
+    monkeypatch.setattr(organization, "request_detail", detail)
+    monkeypatch.setattr(organization, "enqueue", enqueue)
+
+    asyncio.run(
+        organization.retry_organization_synopsis(
+            reimbursement.id, Request({"type": "http", "headers": []})
+        )
+    )
+
+    assert reimbursement.synopsis_status is ExtractionStatus.PENDING
+    assert reimbursement.synopsis_error is None
+    assert queued == [("generate_reimbursement_synopsis", (reimbursement.id,))]
+
+
+def test_retry_marks_request_failed_when_enqueue_is_unavailable(monkeypatch) -> None:
+    reimbursement = ReimbursementRequest(
+        id=7,
+        org_id=3,
+        employee_id=2,
+        currency="USD",
+        status=RequestStatus.SUBMITTED,
+        synopsis_status=ExtractionStatus.FAILED,
+        synopsis_error="provider unavailable",
+    )
+    session = WorkflowSession(reimbursement, [])
+    employee = User(id=2, org_id=3, email="employee@example.test", role=UserRole.EMPLOYEE)
+
+    async def actor(_: UserRole) -> User:
+        return employee
+
+    async def unavailable_enqueue(
+        _: Request, __: str, *args: object, unavailable_detail: str
+    ) -> None:
+        raise HTTPException(status_code=503, detail=unavailable_detail)
+
+    monkeypatch.setattr(organization, "session_factory", lambda: lambda: session)
+    monkeypatch.setattr(organization, "development_organization_actor", actor)
+    monkeypatch.setattr(organization, "enqueue", unavailable_enqueue)
+
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(
+            organization.retry_organization_synopsis(
+                reimbursement.id, Request({"type": "http", "headers": []})
+            )
+        )
+
+    assert error.value.status_code == 503
+    assert reimbursement.synopsis_status is ExtractionStatus.FAILED
+    assert reimbursement.synopsis_error == "Synopsis generation is temporarily unavailable"

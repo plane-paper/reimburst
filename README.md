@@ -49,32 +49,27 @@ AWS_REGION=<region>
 Credentials are supplied through boto3's normal AWS credential provider chain
 (for example, workload identity or `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`).
 
-## Organization workflow backend (P4, in progress)
+## Organization workflow (P4)
 
-The backend now exposes the first organization-workflow slice. An employee
-starts the shared capture pipeline through `POST /organization/receipts`; the
-upload is owned by the development employee and follows the same storage and
-ARQ extraction path as individual capture. The employee can then create a draft
-from confirmed, unassigned receipts of one currency with
-`POST /organization/requests`, inspect their drafts with
-`GET /organization/requests/mine`, and submit with
-`POST /organization/requests/{id}/submit`. Submission changes the request from
-`draft` to `submitted`, writes an immutable audit event, and enqueues
-`generate_reimbursement_synopsis`. The worker stores the synopsis and an
-explicit `pending` / `processing` / `succeeded` / `failed` state on the request.
+The organization workspace is available at `/organization`. It includes an
+employee view for organization receipt capture, review/confirmation, selecting
+confirmed unassigned receipts in one currency, draft creation, and submission.
+The approver view lists submitted requests and shows their receipt image,
+categorized breakdown, asynchronous synopsis, and immutable audit history;
+requests can be approved or rejected with an optional note.
 
-Approvers can retrieve the submitted queue through
-`GET /organization/requests/pending` and transition a request via
-`POST /organization/requests/{id}/approve` or `/reject`, each with an optional
-note. The enforced workflow is `draft → submitted → approved → paid`, with
-`rejected` reachable only from `submitted`; invalid transitions are rejected and
-every valid transition gets an append-only audit record.
+The supporting endpoints are `POST /organization/receipts`,
+`GET /organization/receipts/available`, `POST /organization/requests`,
+`GET /organization/requests/mine`, `GET /organization/requests/pending`, and
+the request submit/approve/reject routes. A failed organization synopsis can be
+re-enqueued with `POST /organization/requests/{id}/retry-synopsis`; the workflow
+state is unchanged. Receipt previews are available through
+`GET /organization/receipts/{id}/image`; organization receipt polling and
+confirmation use the scoped `GET /organization/receipts/{id}` and
+`PUT /organization/receipts/{id}/confirmation` routes.
 
-`GET /organization/requests/{id}` returns the synopsis, audit history, and each
-linked receipt's image key, merchant/date/totals/currency, and categorized line
-items for the approver detail experience.
-
-These endpoints currently resolve seeded local employee and approver identities
-only for development. P5 will replace that isolated identity helper with real
-authentication and authenticated RBAC, and the P4 frontend will supply the
-organization receipt-capture and approver views.
+Organization routes use seeded development employee and approver identities.
+P5 will replace that development-only switcher with authenticated RBAC; P6 adds
+payout dispatch. To enable these development-only routes locally, set
+`DEVELOPMENT_ORGANIZATION_ROUTES=true` in the API process; they are disabled by
+default so seeded organization receipt data is never exposed by deployment.
