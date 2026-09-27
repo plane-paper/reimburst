@@ -138,7 +138,6 @@
           "receipts"
         ],
         "summary": "Confirm Receipt",
-        "description": "Persist the reviewed breakdown, requiring an explicit mismatch acknowledgement.",
         "operationId": "confirm_receipt_receipts__receipt_id__confirmation_put",
         "parameters": [
           {
@@ -287,6 +286,100 @@
                   },
                   "type": "array",
                   "title": "Response Available Organization Receipts Organization Receipts Available Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organization/receipts/{receipt_id}": {
+      "get": {
+        "tags": [
+          "organization receipts"
+        ],
+        "summary": "Get Organization Receipt",
+        "operationId": "get_organization_receipt_organization_receipts__receipt_id__get",
+        "parameters": [
+          {
+            "name": "receipt_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Receipt Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organization/receipts/{receipt_id}/confirmation": {
+      "put": {
+        "tags": [
+          "organization receipts"
+        ],
+        "summary": "Confirm Organization Receipt",
+        "operationId": "confirm_organization_receipt_organization_receipts__receipt_id__confirmation_put",
+        "parameters": [
+          {
+            "name": "receipt_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Receipt Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReceiptConfirmation"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
