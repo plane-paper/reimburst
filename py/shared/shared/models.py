@@ -30,6 +30,7 @@ class User(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     org_id: Mapped[int | None] = mapped_column(ForeignKey("organizations.id"))
     email: Mapped[str] = mapped_column(String(320), unique=True)
+    password_hash: Mapped[str | None] = mapped_column(String(255))
     role: Mapped[UserRole] = mapped_column(Enum(UserRole, name="user_role", native_enum=True))
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
