@@ -37,7 +37,7 @@ function Icon({ name }: { name: "camera" | "check" | "sparkle" }) {
   return <svg aria-hidden="true" fill="none" height="24" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24" width="24">{paths[name]}</svg>;
 }
 
-export function ReceiptCapture() {
+export function ReceiptCapture({ organization = false, onConfirmed }: { organization?: boolean; onConfirmed?: () => void }) {
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [draftItems, setDraftItems] = useState<DraftItem[]>([]);
@@ -84,7 +84,9 @@ export function ReceiptCapture() {
     setUploading(true); setError(null); setReceipt(null); setCategories([]);
     try {
       const form = new FormData(); form.append("image", file);
-      const { data, error: uploadError } = await apiClient.POST("/receipts", { body: form as never });
+      const { data, error: uploadError } = organization
+        ? await apiClient.POST("/organization/receipts", { body: form as never })
+        : await apiClient.POST("/receipts", { body: form as never });
       if (uploadError || !data) throw new Error("Upload failed");
       setReceipt({ ...data, merchant: null, total_cents: null, tax_cents: null, currency: null, extraction_error: null, categorization_status: "pending", categorization_error: null, line_items: [], reconciliation: { line_items_total_cents: 0, receipt_total_cents: null, difference_cents: null, matches: false }, confirmed_at: null });
     } catch { setError("We could not upload that receipt. Check your connection and try again."); }
@@ -106,12 +108,13 @@ export function ReceiptCapture() {
       const { data, error: confirmationError } = await apiClient.PUT("/receipts/{receipt_id}/confirmation", { params: { path: { receipt_id: receipt.id } }, body: { line_items: draftItems, acknowledge_reconciliation_mismatch: acknowledgedMismatch } });
       if (confirmationError || !data) throw new Error("Confirmation failed");
       receiveReceipt(data);
+      onConfirmed?.();
     } catch { setError("We could not save your confirmation. Review the receipt and try again."); }
     finally { setSaving(false); }
   }
 
   return <section className="w-full rounded-xl border border-slate-200 bg-white p-5 shadow-xl shadow-slate-900/10 sm:p-7">
-    <div className="flex gap-4"><div className="grid size-11 shrink-0 place-items-center rounded-xl bg-blue-50 text-[#2563eb]"><Icon name="camera" /></div><div><h2 className="text-xl font-bold tracking-tight text-[#14213d]">Scan a receipt</h2><p className="mt-1 text-sm leading-5 text-slate-500">Take a photo or upload an image. Review and correct every item before confirming.</p></div></div>
+    <div className="flex gap-4"><div className="grid size-11 shrink-0 place-items-center rounded-xl bg-blue-50 text-[#2563eb]"><Icon name="camera" /></div><div><h2 className="text-xl font-bold tracking-tight text-[#14213d]">Scan a receipt</h2><p className="mt-1 text-sm leading-5 text-slate-500">{organization ? "This receipt will be available for an organization reimbursement after you review and confirm it." : "Take a photo or upload an image. Review and correct every item before confirming."}</p></div></div>
     <label className={`mt-6 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-5 py-9 text-center transition ${uploading ? "border-blue-200 bg-blue-50/50" : "border-blue-200 bg-blue-50/30 hover:border-[#2563eb] hover:bg-blue-50"}`}><span className={`grid size-12 place-items-center rounded-full ${uploading ? "bg-blue-100 text-[#2563eb]" : "bg-white text-[#2563eb] shadow-sm"}`}><Icon name={uploading ? "sparkle" : "camera"} /></span><span className="mt-4 font-semibold text-[#14213d]">{uploading ? "Uploading receipt…" : "Take a photo or choose a file"}</span><span className="mt-1 text-sm text-slate-500">JPEG, PNG, or WebP · up to 10 MB</span><input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" disabled={uploading} onChange={upload} /></label>
     {error && <p className="mt-5 rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">{error}</p>}
     {shouldPoll && <div className="mt-5 flex items-center gap-3 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800"><span className="size-2 animate-pulse rounded-full bg-[#2563eb]" />{receipt?.extraction_status === "succeeded" ? "Categorizing line items…" : "Extracting receipt details…"}</div>}
