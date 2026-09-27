@@ -235,8 +235,7 @@ async def available_organization_receipts() -> list[ReceiptDetail]:
     return details
 
 
-@router.get("/{receipt_id}", response_model=ReceiptDetail)
-async def get_receipt(receipt_id: int) -> ReceiptDetail:
+async def get_receipt_for_owner(receipt_id: int, owner_id: int) -> ReceiptDetail:
     async with session_factory()() as session:
         receipt = await session.get(Receipt, receipt_id)
         line_items = [
@@ -250,9 +249,20 @@ async def get_receipt(receipt_id: int) -> ReceiptDetail:
                 )
             ).all()
         ]
-    if receipt is None:
+    if receipt is None or receipt.owner_id != owner_id:
         raise HTTPException(status_code=404, detail="Receipt not found")
     return receipt_detail(receipt, line_items)
+
+
+@router.get("/{receipt_id}", response_model=ReceiptDetail)
+async def get_receipt(receipt_id: int) -> ReceiptDetail:
+    return await get_receipt_for_owner(receipt_id, await development_owner_id())
+
+
+@organization_router.get("/{receipt_id}", response_model=ReceiptDetail)
+async def get_organization_receipt(receipt_id: int) -> ReceiptDetail:
+    employee = await development_organization_actor(UserRole.EMPLOYEE)
+    return await get_receipt_for_owner(receipt_id, employee.id)
 
 
 class ConfirmedLineItem(BaseModel):
@@ -273,12 +283,13 @@ class ReceiptConfirmation(BaseModel):
         return self
 
 
-@router.put("/{receipt_id}/confirmation", response_model=ReceiptDetail)
-async def confirm_receipt(receipt_id: int, confirmation: ReceiptConfirmation) -> ReceiptDetail:
+async def confirm_receipt_for_owner(
+    receipt_id: int, confirmation: ReceiptConfirmation, owner_id: int
+) -> ReceiptDetail:
     """Persist the reviewed breakdown, requiring an explicit mismatch acknowledgement."""
     async with session_factory()() as session:
         receipt = await session.get(Receipt, receipt_id)
-        if receipt is None:
+        if receipt is None or receipt.owner_id != owner_id:
             raise HTTPException(status_code=404, detail="Receipt not found")
         if receipt.extraction_status is not ExtractionStatus.SUCCEEDED:
             raise HTTPException(status_code=409, detail="Receipt extraction has not completed")
@@ -347,3 +358,16 @@ async def confirm_receipt(receipt_id: int, confirmation: ReceiptConfirmation) ->
             ).all()
         ]
     return receipt_detail(receipt, item_rows)
+
+
+@router.put("/{receipt_id}/confirmation", response_model=ReceiptDetail)
+async def confirm_receipt(receipt_id: int, confirmation: ReceiptConfirmation) -> ReceiptDetail:
+    return await confirm_receipt_for_owner(receipt_id, confirmation, await development_owner_id())
+
+
+@organization_router.put("/{receipt_id}/confirmation", response_model=ReceiptDetail)
+async def confirm_organization_receipt(
+    receipt_id: int, confirmation: ReceiptConfirmation
+) -> ReceiptDetail:
+    employee = await development_organization_actor(UserRole.EMPLOYEE)
+    return await confirm_receipt_for_owner(receipt_id, confirmation, employee.id)
