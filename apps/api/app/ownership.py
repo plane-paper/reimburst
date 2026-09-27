@@ -1,5 +1,7 @@
 """Temporary identity lookup used until authentication is introduced."""
 
+import os
+
 from fastapi import HTTPException
 from shared.enums import UserRole
 from shared.models import Organization, User
@@ -8,6 +10,15 @@ from sqlalchemy import select
 from app.database import session_factory
 
 DEVELOPMENT_EMAIL = "local@reimburst.test"
+
+
+def development_organization_routes_enabled() -> bool:
+    """Require an explicit opt-in before exposing seeded organization data."""
+    return os.environ.get("DEVELOPMENT_ORGANIZATION_ROUTES", "").lower() in {
+        "1",
+        "true",
+        "yes",
+    }
 
 
 async def development_owner_id() -> int:
@@ -24,6 +35,13 @@ async def development_owner_id() -> int:
 
 async def development_organization_actor(role: UserRole) -> User:
     """Return a seeded organization actor for local organization-flow development."""
+    if not development_organization_routes_enabled():
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Development organization routes are disabled until authenticated RBAC is available"
+            ),
+        )
     email = f"local-{role.value}@reimburst.test"
     async with session_factory()() as session:
         actor = await session.scalar(select(User).where(User.email == email))

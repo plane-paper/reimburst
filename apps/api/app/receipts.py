@@ -3,7 +3,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, File, HTTPException, Request, Response, UploadFile, status
 from pydantic import BaseModel, Field, model_validator
 from shared.enums import ExtractionStatus, UserRole
 from shared.models import Category, LineItem, Receipt
@@ -113,6 +113,34 @@ async def create_organization_receipt(
     return await create_receipt_for_owner(request, image, employee.id)
 
 
+@organization_router.get(
+    "/{receipt_id}/image",
+    response_class=Response,
+    responses={
+        200: {
+            "content": {
+                "image/jpeg": {},
+                "image/png": {},
+                "image/webp": {},
+            }
+        }
+    },
+)
+async def organization_receipt_image(receipt_id: int, request: Request) -> Response:
+    """Serve a receipt image to an organization member during local P4 development."""
+    employee = await development_organization_actor(UserRole.EMPLOYEE)
+    async with session_factory()() as session:
+        receipt = await session.get(Receipt, receipt_id)
+        if receipt is None or receipt.owner_id != employee.id:
+            raise HTTPException(status_code=404, detail="Receipt not found")
+    try:
+        content = await object_storage(request).get(receipt.image_key)
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=404, detail="Receipt image is unavailable") from error
+    content_type = mimetypes.guess_type(receipt.image_key)[0] or "application/octet-stream"
+    return Response(content=content, media_type=content_type, headers={"Cache-Control": "no-store"})
+
+
 class CategoryDetail(BaseModel):
     id: int
     name: str
@@ -169,6 +197,42 @@ def receipt_detail(receipt: Receipt, item_rows: list[tuple[LineItem, str | None]
         reconciliation=reconciliation_for(receipt, line_items),
         confirmed_at=receipt.confirmed_at,
     )
+
+
+@organization_router.get("/available", response_model=list[ReceiptDetail])
+async def available_organization_receipts() -> list[ReceiptDetail]:
+    """Return confirmed employee receipts that can still be added to a draft."""
+    employee = await development_organization_actor(UserRole.EMPLOYEE)
+    async with session_factory()() as session:
+        receipt_ids = list(
+            await session.scalars(
+                select(Receipt.id)
+                .where(
+                    Receipt.owner_id == employee.id,
+                    Receipt.confirmed_at.is_not(None),
+                    Receipt.request_id.is_(None),
+                )
+                .order_by(Receipt.created_at.desc(), Receipt.id.desc())
+            )
+        )
+        details: list[ReceiptDetail] = []
+        for receipt_id in receipt_ids:
+            receipt = await session.get(Receipt, receipt_id)
+            if receipt is None:
+                continue
+            item_rows = [
+                (item, category)
+                for item, category in (
+                    await session.execute(
+                        select(LineItem, Category.name)
+                        .outerjoin(Category, LineItem.category_id == Category.id)
+                        .where(LineItem.receipt_id == receipt_id)
+                        .order_by(LineItem.id)
+                    )
+                ).all()
+            ]
+            details.append(receipt_detail(receipt, item_rows))
+    return details
 
 
 @router.get("/{receipt_id}", response_model=ReceiptDetail)

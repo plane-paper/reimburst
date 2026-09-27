@@ -74,6 +74,34 @@ class OrganizationRequestDetail(BaseModel):
     audit_events: list[AuditEventDetail]
 
 
+async def mark_synopsis_enqueue_failed(request_id: int, detail: str) -> None:
+    """Keep a request retryable when its background-job handoff is unavailable."""
+    async with session_factory()() as session:
+        reimbursement = await session.get(ReimbursementRequest, request_id)
+        if reimbursement is not None:
+            reimbursement.synopsis_status = ExtractionStatus.FAILED
+            reimbursement.synopsis_error = detail
+            await session.commit()
+
+
+async def enqueue_synopsis(request: Request, request_id: int) -> None:
+    """Enqueue a synopsis job or restore a visible, retryable failure state."""
+    unavailable_detail = "Synopsis generation is temporarily unavailable"
+    try:
+        await enqueue(
+            request,
+            "generate_reimbursement_synopsis",
+            request_id,
+            unavailable_detail=unavailable_detail,
+        )
+    except HTTPException as error:
+        await mark_synopsis_enqueue_failed(request_id, str(error.detail))
+        raise
+    except Exception as error:
+        await mark_synopsis_enqueue_failed(request_id, unavailable_detail)
+        raise HTTPException(status_code=503, detail=unavailable_detail) from error
+
+
 async def request_detail(request_id: int) -> OrganizationRequestDetail:
     async with session_factory()() as session:
         reimbursement = await session.get(ReimbursementRequest, request_id)
@@ -223,12 +251,34 @@ async def submit_organization_request(
         reimbursement.synopsis_error = None
         session.add(event)
         await session.commit()
-    await enqueue(
-        request,
-        "generate_reimbursement_synopsis",
-        request_id,
-        unavailable_detail="Synopsis generation is temporarily unavailable",
-    )
+    await enqueue_synopsis(request, request_id)
+    return await request_detail(request_id)
+
+
+@router.post("/{request_id}/retry-synopsis", response_model=OrganizationRequestDetail)
+async def retry_organization_synopsis(
+    request_id: int, request: Request
+) -> OrganizationRequestDetail:
+    """Retry a failed asynchronous synopsis job without changing workflow state."""
+    actor = await development_organization_actor(UserRole.EMPLOYEE)
+    async with session_factory()() as session:
+        reimbursement = await session.get(ReimbursementRequest, request_id)
+        if reimbursement is None or reimbursement.org_id != actor.org_id:
+            raise HTTPException(status_code=404, detail="Organization request not found")
+        if reimbursement.employee_id != actor.id:
+            raise HTTPException(status_code=403, detail="Only the submitting employee may retry")
+        if reimbursement.status != RequestStatus.SUBMITTED:
+            raise HTTPException(
+                status_code=409, detail="Only submitted requests can generate a synopsis"
+            )
+        if reimbursement.synopsis_status != ExtractionStatus.FAILED:
+            raise HTTPException(
+                status_code=409, detail="Synopsis generation is not eligible for retry"
+            )
+        reimbursement.synopsis_status = ExtractionStatus.PENDING
+        reimbursement.synopsis_error = None
+        await session.commit()
+    await enqueue_synopsis(request, request_id)
     return await request_detail(request_id)
 
 
