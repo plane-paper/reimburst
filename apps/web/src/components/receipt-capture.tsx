@@ -62,12 +62,14 @@ export function ReceiptCapture({ organization = false, onConfirmed }: { organiza
   useEffect(() => {
     if (!shouldPoll || !receipt) return;
     const timer = window.setTimeout(async () => {
-      const { data, error: requestError } = await apiClient.GET("/receipts/{receipt_id}", { params: { path: { receipt_id: receipt.id } } });
+      const { data, error: requestError } = organization
+        ? await apiClient.GET("/organization/receipts/{receipt_id}", { params: { path: { receipt_id: receipt.id } } })
+        : await apiClient.GET("/receipts/{receipt_id}", { params: { path: { receipt_id: receipt.id } } });
       if (data) receiveReceipt(data);
       if (requestError) setError("Could not retrieve the receipt. Please try again.");
     }, 1500);
     return () => window.clearTimeout(timer);
-  }, [receipt, shouldPoll]);
+  }, [organization, receipt, shouldPoll]);
 
   useEffect(() => {
     if (receipt?.extraction_status !== "succeeded") return;
@@ -105,7 +107,9 @@ export function ReceiptCapture({ organization = false, onConfirmed }: { organiza
     if (!receipt || !canConfirm) return;
     setSaving(true); setError(null);
     try {
-      const { data, error: confirmationError } = await apiClient.PUT("/receipts/{receipt_id}/confirmation", { params: { path: { receipt_id: receipt.id } }, body: { line_items: draftItems, acknowledge_reconciliation_mismatch: acknowledgedMismatch } });
+      const { data, error: confirmationError } = organization
+        ? await apiClient.PUT("/organization/receipts/{receipt_id}/confirmation", { params: { path: { receipt_id: receipt.id } }, body: { line_items: draftItems, acknowledge_reconciliation_mismatch: acknowledgedMismatch } })
+        : await apiClient.PUT("/receipts/{receipt_id}/confirmation", { params: { path: { receipt_id: receipt.id } }, body: { line_items: draftItems, acknowledge_reconciliation_mismatch: acknowledgedMismatch } });
       if (confirmationError || !data) throw new Error("Confirmation failed");
       receiveReceipt(data);
       onConfirmed?.();
