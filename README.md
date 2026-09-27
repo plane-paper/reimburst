@@ -64,7 +64,8 @@ The supporting endpoints are `POST /organization/receipts`,
 the request submit/approve/reject routes. A failed organization synopsis can be
 re-enqueued with `POST /organization/requests/{id}/retry-synopsis`; the workflow
 state is unchanged. Receipt previews are available through
-`GET /organization/receipts/{id}/image`.
+`GET /organization/receipts/{id}/image`; organization receipt polling and
+confirmation use the scoped `GET` and `PUT /organization/receipts/{id}` routes.
 
 Organization routes use seeded development employee and approver identities.
 P5 will replace that development-only switcher with authenticated RBAC; P6 adds
