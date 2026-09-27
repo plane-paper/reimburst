@@ -27,7 +27,7 @@ export function OrganizationWorkspace() {
   const user = useAuthenticatedUser();
   const isApprover = user.role === "approver" || user.role === "admin";
   const isEmployee = user.role === "employee";
-  const [view, setView] = useState<"employee" | "approver">(isApprover ? "approver" : "employee");
+  const view: "employee" | "approver" = isApprover ? "approver" : "employee";
   const [available, setAvailable] = useState<Receipt[]>([]);
   const [mine, setMine] = useState<OrganizationRequest[]>([]);
   const [pending, setPending] = useState<OrganizationRequest[]>([]);

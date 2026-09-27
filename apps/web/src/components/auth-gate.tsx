@@ -18,7 +18,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const token = window.localStorage.getItem("reimburst.access_token");
-    if (!token) { setLoading(false); return; }
+    if (!token) { void Promise.resolve().then(() => setLoading(false)); return; }
     void fetch(`${apiBaseUrl}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
       .then(async (response) => response.ok ? setUser(await response.json() as AuthUser) : window.localStorage.removeItem("reimburst.access_token"))
       .finally(() => setLoading(false));
