@@ -92,6 +92,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register
+         * @description Create an individual account; organization roles are provisioned by an administrator.
+         */
+        post: operations["register_auth_register_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Login */
+        post: operations["login_auth_login_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Me */
+        get: operations["me_auth_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organization/receipts": {
         parameters: {
             query?: never;
@@ -451,6 +505,16 @@ export interface components {
              */
             created_at: string;
         };
+        /** AuthenticatedUser */
+        AuthenticatedUser: {
+            /** Id */
+            id: number;
+            /** Email */
+            email: string;
+            role: components["schemas"]["UserRole"];
+            /** Org Id */
+            org_id: number | null;
+        };
         /** Body_create_organization_receipt_organization_receipts_post */
         Body_create_organization_receipt_organization_receipts_post: {
             /**
@@ -484,6 +548,13 @@ export interface components {
             amount_cents: number;
             /** Category */
             category: string;
+        };
+        /** Credentials */
+        Credentials: {
+            /** Email */
+            email: string;
+            /** Password */
+            password: string;
         };
         /**
          * ExtractionStatus
@@ -697,6 +768,18 @@ export interface components {
          * @enum {string}
          */
         RequestStatus: "draft" | "submitted" | "approved" | "rejected" | "paid";
+        /** Session */
+        Session: {
+            /** Id */
+            id: number;
+            /** Email */
+            email: string;
+            role: components["schemas"]["UserRole"];
+            /** Org Id */
+            org_id: number | null;
+            /** Access Token */
+            access_token: string;
+        };
         /** SpendingGroup */
         SpendingGroup: {
             /** Name */
@@ -747,6 +830,11 @@ export interface components {
             /** Note */
             note?: string | null;
         };
+        /**
+         * UserRole
+         * @enum {string}
+         */
+        UserRole: "individual" | "employee" | "approver" | "admin";
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -904,6 +992,92 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    register_auth_register_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Credentials"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    login_auth_login_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Credentials"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    me_auth_me_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthenticatedUser"];
                 };
             };
         };

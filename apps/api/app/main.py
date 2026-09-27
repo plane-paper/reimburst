@@ -1,8 +1,9 @@
 import os
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from starlette.middleware.base import RequestResponseEndpoint
 
 from app.auth import authenticate_request, clear_principal
 from app.auth import router as auth_router
@@ -16,7 +17,7 @@ app = FastAPI(title="Reimburse API")
 
 
 @app.middleware("http")
-async def authenticated_principal(request, call_next):
+async def authenticated_principal(request: Request, call_next: RequestResponseEndpoint) -> Response:
     token = await authenticate_request(request)
     try:
         return await call_next(request)

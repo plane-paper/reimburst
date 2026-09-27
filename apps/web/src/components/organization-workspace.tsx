@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { ReceiptCapture } from "@/components/receipt-capture";
+import { useAuthenticatedUser } from "@/components/auth-gate";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const api = createApiClient(apiBaseUrl);
@@ -23,7 +24,10 @@ function statusClass(status: string) {
 }
 
 export function OrganizationWorkspace() {
-  const [view, setView] = useState<"employee" | "approver">("employee");
+  const user = useAuthenticatedUser();
+  const isApprover = user.role === "approver" || user.role === "admin";
+  const isEmployee = user.role === "employee";
+  const [view, setView] = useState<"employee" | "approver">(isApprover ? "approver" : "employee");
   const [available, setAvailable] = useState<Receipt[]>([]);
   const [mine, setMine] = useState<OrganizationRequest[]>([]);
   const [pending, setPending] = useState<OrganizationRequest[]>([]);
@@ -36,9 +40,9 @@ export function OrganizationWorkspace() {
 
   const load = useCallback(async () => {
     const [receipts, employeeRequests, approverRequests] = await Promise.all([
-      api.GET("/organization/receipts/available"),
-      api.GET("/organization/requests/mine"),
-      api.GET("/organization/requests/pending"),
+      isEmployee ? api.GET("/organization/receipts/available") : Promise.resolve({ data: [] as Receipt[] }),
+      isEmployee ? api.GET("/organization/requests/mine") : Promise.resolve({ data: [] as OrganizationRequest[] }),
+      isApprover ? api.GET("/organization/requests/pending") : Promise.resolve({ data: [] as OrganizationRequest[] }),
     ]);
     if (!receipts.data || !employeeRequests.data || !approverRequests.data) {
       setError("Could not load the organization workspace. Please refresh and try again.");
@@ -52,7 +56,7 @@ export function OrganizationWorkspace() {
       if (!current) return null;
       return [...employeeRequests.data, ...approverRequests.data].find((request) => request.id === current.id) ?? null;
     });
-  }, []);
+  }, [isApprover, isEmployee]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
@@ -103,11 +107,11 @@ export function OrganizationWorkspace() {
     setSelectedRequest(result.data); setNote(""); await load();
   };
 
+  if (!isEmployee && !isApprover) return <main className="grid min-h-screen place-items-center p-5 text-slate-600">Your individual account cannot access organization reimbursements.</main>;
   const requests = view === "employee" ? mine : pending;
   return <main className="min-h-screen bg-[#f8faff] px-5 py-8 text-[#14213d] sm:px-10"><div className="mx-auto max-w-7xl">
     <div className="flex flex-wrap items-center justify-between gap-4"><div><Link className="text-sm font-semibold text-blue-600" href="/">← Home</Link><h1 className="mt-4 text-3xl font-bold">Organization reimbursements</h1><p className="mt-2 text-slate-500">Capture confirmed receipts, submit a request, or review the approval queue.</p></div><button className="rounded-lg bg-[#2563eb] px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700" onClick={() => setCaptureOpen(true)} type="button">Scan organization receipt</button></div>
-    <div aria-label="Organization role view" className="mt-7 inline-flex rounded-lg border border-slate-200 bg-white p-1"><button aria-pressed={view === "employee"} className={`rounded-md px-4 py-2 text-sm font-semibold ${view === "employee" ? "bg-blue-50 text-blue-700" : "text-slate-500"}`} onClick={() => { setView("employee"); setSelectedRequest(null); }} type="button">Employee</button><button aria-pressed={view === "approver"} className={`rounded-md px-4 py-2 text-sm font-semibold ${view === "approver" ? "bg-blue-50 text-blue-700" : "text-slate-500"}`} onClick={() => { setView("approver"); setSelectedRequest(null); }} type="button">Approver</button></div>
-    <p className="mt-3 text-xs text-slate-400">Development role switcher — authenticated role routing is planned for P5.</p>
+    <p className="mt-3 text-sm text-slate-500">Signed in as {user.email} · <span className="capitalize">{user.role}</span></p>
     {error && <p className="mt-5 rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">{error}</p>}
     {view === "employee" && <section className="mt-7 rounded-xl border border-slate-200 bg-white"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-5"><div><h2 className="font-bold">Available confirmed receipts</h2><p className="mt-1 text-sm text-slate-500">Choose receipts in one currency to create a draft.</p></div><button className="rounded-lg bg-[#2563eb] px-4 py-2 text-sm font-semibold text-white disabled:bg-slate-300" disabled={!selectionValid || busy} onClick={createDraft} type="button">{busy ? "Creating…" : `Create draft${selectedReceiptIds.length ? ` (${selectedReceiptIds.length})` : ""}`}</button></div>{selectedReceiptIds.length > 1 && currencies.size > 1 && <p className="mx-5 mt-4 rounded bg-amber-50 p-3 text-sm text-amber-800">A request can contain receipts in one currency only.</p>}<div className="overflow-x-auto"><table className="w-full min-w-[640px] text-left text-sm"><thead className="bg-slate-50 text-slate-500"><tr><th className="p-4">Select</th><th>Merchant</th><th>Date</th><th>Items</th><th className="pr-4 text-right">Total</th></tr></thead><tbody>{available.map((receipt) => <tr className="border-t border-slate-100" key={receipt.id}><td className="p-4"><input aria-label={`Select ${receipt.merchant ?? "receipt"}`} checked={selectedReceiptIds.includes(receipt.id)} onChange={() => toggleReceipt(receipt.id)} type="checkbox" /></td><td className="font-medium">{receipt.merchant ?? "Unknown merchant"}</td><td>{receipt.confirmed_at ? new Date(receipt.confirmed_at).toLocaleDateString() : "—"}</td><td>{receipt.line_items.length}</td><td className="pr-4 text-right font-semibold">{money(receipt.total_cents, receipt.currency)}</td></tr>)}{!available.length && <tr><td className="p-6 text-center text-slate-500" colSpan={5}>No confirmed receipts are ready for a new request.</td></tr>}</tbody></table></div></section>}
     <div className="mt-7 grid gap-6 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]"><section className="overflow-hidden rounded-xl border border-slate-200 bg-white"><div className="border-b border-slate-100 p-5"><h2 className="font-bold">{view === "employee" ? "My reimbursement requests" : "Pending approval"}</h2><p className="mt-1 text-sm text-slate-500">{view === "employee" ? "Draft, submitted, and completed requests." : "Submitted requests awaiting your decision."}</p></div><div className="divide-y divide-slate-100">{requests.map((request) => <button className={`w-full p-4 text-left hover:bg-slate-50 ${selectedRequest?.id === request.id ? "bg-blue-50/60" : ""}`} key={request.id} onClick={() => setSelectedRequest(request)} type="button"><div className="flex items-center justify-between gap-3"><span className="font-semibold">Request #{request.id}</span><span className={`rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${statusClass(request.status)}`}>{request.status}</span></div><p className="mt-2 text-sm text-slate-500">{request.receipts.length} receipt{request.receipts.length === 1 ? "" : "s"} · {request.currency}</p></button>)}{!requests.length && <p className="p-6 text-sm text-slate-500">{view === "employee" ? "Create a draft from confirmed receipts to get started." : "There are no requests waiting for approval."}</p>}</div></section><RequestDetail request={selectedRequest} approver={view === "approver"} busy={busy} note={note} onNoteChange={setNote} onRetry={retrySynopsis} onSubmit={submit} onReview={review} /></div>
