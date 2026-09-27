@@ -68,8 +68,29 @@ state is unchanged. Receipt previews are available through
 confirmation use the scoped `GET /organization/receipts/{id}` and
 `PUT /organization/receipts/{id}/confirmation` routes.
 
-Organization routes use seeded development employee and approver identities.
-P5 will replace that development-only switcher with authenticated RBAC; P6 adds
-payout dispatch. To enable these development-only routes locally, set
-`DEVELOPMENT_ORGANIZATION_ROUTES=true` in the API process; they are disabled by
-default so seeded organization receipt data is never exposed by deployment.
+## Authentication and roles (P5)
+
+All portal and API workflow requests now require a bearer token. Set a strong,
+unique `AUTH_SECRET` in the API environment before starting the service. The web
+portal provides registration and sign-in; self-registration creates an
+`individual` account only. Individual accounts can use personal receipts,
+spending, and outbound requests, but cannot access organization routes.
+
+Organization accounts are provisioned through a trusted operator shell so a
+visitor cannot select a privileged role. The command creates the named
+organization when needed:
+
+```text
+uv run --package api python apps/api/scripts/provision_user.py \
+  --email employee@example.com \
+  --password '<at-least-12-character-password>' \
+  --role employee \
+  --organization 'Example Co'
+```
+
+Use `--role approver` for approval-queue users or `--role admin` for an
+organization administrator (admins may approve requests). Employees only see
+their own receipts and requests; approvers only see their organization’s pending
+approval queue. The API checks the database role on every request, so changing a
+client-side view or a token claim cannot escalate access. P6 adds payout
+dispatch.
