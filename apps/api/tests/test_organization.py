@@ -5,7 +5,7 @@ import pytest
 from app import organization
 from fastapi import HTTPException
 from shared.enums import ExtractionStatus, RequestStatus, UserRole
-from shared.models import AuditEvent, LineItem, Receipt, ReimbursementRequest, User
+from shared.models import AuditEvent, LineItem, Notification, Receipt, ReimbursementRequest, User
 from starlette.requests import Request
 
 
@@ -18,11 +18,19 @@ class ScalarRows:
 
 
 class WorkflowSession:
-    def __init__(self, reimbursement: ReimbursementRequest, receipts: list[Receipt]) -> None:
+    def __init__(
+        self,
+        reimbursement: ReimbursementRequest,
+        receipts: list[Receipt],
+        recipient_ids: list[int] | None = None,
+    ) -> None:
         self.reimbursement = reimbursement
         self.receipts = receipts
+        self.recipient_ids = recipient_ids or []
         self.events: list[AuditEvent] = []
+        self.notifications: list[Notification] = []
         self.commit_count = 0
+        self.scalar_calls = 0
 
     async def __aenter__(self) -> "WorkflowSession":
         return self
@@ -34,12 +42,17 @@ class WorkflowSession:
         return self.reimbursement
 
     async def scalars(self, _: object) -> ScalarRows:
-        return ScalarRows(self.receipts)
+        self.scalar_calls += 1
+        values = self.receipts if self.scalar_calls == 1 else self.recipient_ids
+        return ScalarRows(values)  # type: ignore[arg-type]
 
     def add(self, value: object) -> None:
         if isinstance(value, AuditEvent):
             value.id = len(self.events) + 1
             self.events.append(value)
+        if isinstance(value, Notification):
+            value.id = len(self.notifications) + 1
+            self.notifications.append(value)
 
     async def commit(self) -> None:
         self.commit_count += 1
@@ -115,7 +128,7 @@ def test_submit_transitions_audits_and_enqueues_synopsis(monkeypatch) -> None:
         image_key="receipts/test.jpg",
         confirmed_at=datetime.now(UTC),
     )
-    session = WorkflowSession(reimbursement, [receipt])
+    session = WorkflowSession(reimbursement, [receipt], recipient_ids=[5, 6])
     employee = User(id=2, org_id=3, email="employee@example.test", role=UserRole.EMPLOYEE)
     queued: list[tuple[str, tuple[object, ...]]] = []
 
@@ -148,6 +161,10 @@ def test_submit_transitions_audits_and_enqueues_synopsis(monkeypatch) -> None:
     assert len(session.events) == 1
     assert session.events[0].actor_id == employee.id
     assert session.events[0].payload == {"from_status": "draft", "to_status": "submitted"}
+    assert [(item.user_id, item.kind) for item in session.notifications] == [
+        (5, "request_submitted"),
+        (6, "request_submitted"),
+    ]
 
 
 def test_request_detail_includes_receipt_breakdown(monkeypatch) -> None:
@@ -237,6 +254,8 @@ def test_reject_records_approver_note(monkeypatch) -> None:
         "to_status": "rejected",
         "note": "Receipt total needs clarification",
     }
+    assert session.notifications[0].user_id == reimbursement.employee_id
+    assert session.notifications[0].kind == "request_rejected"
 
 
 def test_approver_cannot_transition_draft_request(monkeypatch) -> None:

@@ -20,6 +20,16 @@ async def development_organization_actor(role: UserRole) -> User:
     return actor
 
 
+async def organization_member() -> User:
+    """Require any authenticated role that belongs to an organization."""
+    actor = current_user()
+    if actor.role not in {UserRole.EMPLOYEE, UserRole.APPROVER, UserRole.ADMIN}:
+        raise HTTPException(status_code=403, detail="Organization membership is required")
+    if actor.org_id is None:
+        raise HTTPException(status_code=403, detail="Organization membership is required")
+    return actor
+
+
 async def individual_owner_id(feature: str) -> int:
     owner = current_user()
     if owner.role is not UserRole.INDIVIDUAL:

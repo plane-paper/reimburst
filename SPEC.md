@@ -274,7 +274,7 @@ All monetary columns are integer cents. `status` and `role` are enums. Receipts 
 | **P2** | Categorization + editable confirmation | **Complete (2026-09-22):** taxonomy-constrained categorization, editable review, explicit reconciliation acknowledgement, and persisted confirmed breakdowns are implemented and locally checked. *(`FR-CAT-*`, `FR-CONF-*`)* | 1–2 weeks |
 | **P3** | Individual mode | **Complete (2026-09-24):** personal spending history and CSV reports; confirmed-item selection across receipts; asynchronous LLM synopsis and editable outbound email artifact; user-driven copy/download and sent tracking with request history. Self-contained; needs no approver or payroll. *(`FR-IND-*`, `FR-SYN-*`, `FR-FE-IND`)* | 2–3 weeks |
 | **P4** | Org workflow | **Complete (2026-09-26):** organization capture, employee draft/submit workflow, asynchronous synopsis with retry, approver queue/detail/decisions, receipt previews, and immutable transition audits. *(`FR-WF-*`, `FR-SYN-*`, `FR-FE-ORG`)* | 2–3 weeks |
-| **P5** | Auth, RBAC, notifications, polish | Auth + role gating (individual vs org roles), notifications, audit trail view, error states. *(`FR-AUTH-01/02`, `FR-NOTE-*`)* | 1–2 weeks |
+| **P5** | Auth, RBAC, notifications, polish | **Complete (2026-09-28):** password authentication, database-enforced role gates, durable in-app workflow notifications, audit-trail/request access, and recoverable portal error states. *(`FR-AUTH-01/02`, `FR-NOTE-*`)* | 1–2 weeks |
 | **P6** | Payout & integration | `PayrollProvider` with CSV fallback first, then Employment Hero adapter (idempotent). *(`FR-PAY-*`, `INT-01`)* | 2–4 weeks (high variance) |
 | **P7 (DEFERRED)** | Multi-tenant + SSO/SAML + Workday | Tenant scoping, WorkOS SSO, org management, Workday adapter. *(`FR-AUTH-03/04`, `INT-02`)* | — |
 
@@ -286,7 +286,7 @@ All monetary columns are integer cents. `status` and `role` are enums. Receipts 
 
 ## 9. Where We Left Off
 
-**Current phase: P4 — Organization workflow (2026-09-26).** The organization portal is complete against the current development identity model. P5 will replace its seeded employee/approver switch with authenticated RBAC.
+**Current phase: P6 — Payout & integration (2026-09-28).** P5 authentication, RBAC, notifications, and portal polish are complete. P6 adds idempotent payout dispatch with CSV export as the initial provider.
 
 ### P4 delivered — organization capture, employee workflow, and approval
 
@@ -296,7 +296,16 @@ All monetary columns are integer cents. `status` and `role` are enums. Receipts 
 - `GET /organization/receipts/{id}` and `PUT /organization/receipts/{id}/confirmation` use the same scoped development actor as organization upload, so the employee capture flow never falls back to the individual receipt routes. `GET /organization/receipts/available` supplies only that actor's confirmed, unassigned receipts, and `GET /organization/receipts/{id}/image` serves its protected local-development preview. The generated OpenAPI contract includes all organization routes.
 - Seeded organization identities are explicitly opt-in with `DEVELOPMENT_ORGANIZATION_ROUTES=true`; organization routes are disabled by default until P5 authenticates and authorizes the caller.
 
-**P4 exit criterion: met.** The shared capture pipeline now supports the complete internal request path: capture and confirm → draft → submit → asynchronous synopsis → approver review → approve or reject, with receipt detail and immutable audit history visible in the portal. Authentication/RBAC and notifications remain P5 work; payout dispatch remains P6 work.
+**P4 exit criterion: met.** The shared capture pipeline now supports the complete internal request path: capture and confirm → draft → submit → asynchronous synopsis → approver review → approve or reject, with receipt detail and immutable audit history visible in the portal.
+
+### P5 delivered — authentication, role gates, notifications, and polish
+
+- The portal provides local email/password registration and sign-in. Self-registration creates only individual accounts; organization users are provisioned by a trusted operator. Every protected API request resolves the signed-in user from a signed bearer token and checks the current database role.
+- Individual endpoints reject organization roles, while employee, approver, and admin capabilities are enforced server-side. Employees remain limited to their own organization receipts and requests; approvers and admins can review same-organization submitted requests and their protected receipt previews. Self-approval remains blocked.
+- Submitting a request creates durable in-app notifications for all same-organization approvers/admins. Approval or rejection creates a notification for the submitting employee, including an optional decision note. Users can review and mark their own notifications read; notification ownership is enforced by the API.
+- The shared portal shell includes the notification center and account sign-out. Protected receipt images and CSV exports use authenticated browser requests, and a global retryable error boundary provides a recoverable failure state.
+
+**P5 exit criterion: met.** Authentication and role boundaries are enforced by the API, workflow participants receive durable in-app notifications, and the portal exposes the audit trail plus explicit recovery paths for failed UI operations. Payout dispatch remains P6 work.
 
 ---
 

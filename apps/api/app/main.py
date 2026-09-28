@@ -7,6 +7,7 @@ from starlette.middleware.base import RequestResponseEndpoint
 
 from app.auth import authenticate_request, clear_principal
 from app.auth import router as auth_router
+from app.notifications import router as notifications_router
 from app.organization import router as organization_router
 from app.outbound import router as outbound_router
 from app.receipts import organization_router as organization_receipts_router
@@ -44,6 +45,7 @@ def health() -> HealthResponse:
 
 app.include_router(receipts_router)
 app.include_router(auth_router)
+app.include_router(notifications_router)
 app.include_router(organization_receipts_router)
 app.include_router(spending_router)
 app.include_router(outbound_router)

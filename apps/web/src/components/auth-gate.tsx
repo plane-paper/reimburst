@@ -1,9 +1,12 @@
 "use client";
 
+import { createApiClient, type components } from "@reimburse/contract";
 import { createContext, FormEvent, ReactNode, useContext, useEffect, useState } from "react";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const api = createApiClient(apiBaseUrl);
 export type AuthUser = { id: number; email: string; role: "individual" | "employee" | "approver" | "admin"; org_id: number | null };
+type Notification = components["schemas"]["NotificationDetail"];
 const AuthContext = createContext<AuthUser | null>(null);
 
 export function useAuthenticatedUser() {
@@ -26,7 +29,33 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   if (loading) return <main className="grid min-h-screen place-items-center text-sm text-slate-500">Loading your workspace…</main>;
   if (!user) return <SignIn onAuthenticated={setUser} />;
-  return <AuthContext.Provider value={user}>{children}</AuthContext.Provider>;
+  const signOut = () => { window.localStorage.removeItem("reimburst.access_token"); setUser(null); };
+  return <AuthContext.Provider value={user}><AuthenticatedTools onSignOut={signOut} />{children}</AuthContext.Provider>;
+}
+
+function AuthenticatedTools({ onSignOut }: { onSignOut: () => void }) {
+  const user = useAuthenticatedUser();
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const unread = notifications.filter((notification) => notification.read_at === null).length;
+
+  const load = async () => {
+    const result = await api.GET("/notifications");
+    if (!result.data) { setError("Notifications are temporarily unavailable."); return; }
+    setNotifications(result.data); setError(null);
+  };
+  useEffect(() => {
+    const initial = window.setTimeout(() => void load(), 0);
+    const timer = window.setInterval(() => void load(), 30_000);
+    return () => { window.clearTimeout(initial); window.clearInterval(timer); };
+  }, []);
+  const read = async (notification: Notification) => {
+    if (notification.read_at) return;
+    const result = await api.POST("/notifications/{notification_id}/read", { params: { path: { notification_id: notification.id } } });
+    if (result.data) setNotifications((current) => current.map((item) => item.id === result.data?.id ? result.data : item));
+  };
+
+  return <div className="fixed right-3 top-3 z-[60] flex items-center gap-2 sm:right-5 sm:top-5"><details className="relative"><summary aria-label={`Notifications${unread ? `, ${unread} unread` : ""}`} className="cursor-pointer list-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">Notifications{unread ? <span className="ml-2 rounded-full bg-blue-600 px-1.5 py-0.5 text-xs text-white">{unread}</span> : null}</summary><section aria-label="Notifications" className="absolute right-0 mt-2 max-h-[70vh] w-80 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-xl"><h2 className="px-2 py-2 text-sm font-bold text-slate-800">Notifications</h2>{error ? <p className="px-2 pb-2 text-sm text-red-700" role="alert">{error}</p> : null}{notifications.length ? <ul className="divide-y divide-slate-100">{notifications.map((notification) => <li key={notification.id}><a className={`block rounded-lg px-2 py-3 text-sm hover:bg-slate-50 ${notification.read_at ? "text-slate-500" : "bg-blue-50/60 text-slate-800"}`} href={notification.request_id ? "/organization" : "#"} onClick={() => void read(notification)}><span className="block font-semibold">{notification.title}</span><span className="mt-1 block leading-5">{notification.body}</span><time className="mt-1 block text-xs text-slate-400">{new Date(notification.created_at).toLocaleString()}</time></a></li>)}</ul> : <p className="px-2 pb-2 text-sm text-slate-500">You’re all caught up.</p>}</section></details><details className="relative"><summary aria-label="Account menu" className="cursor-pointer list-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">Account</summary><div className="absolute right-0 mt-2 w-56 rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-xl"><p className="truncate font-medium text-slate-800">{user.email}</p><p className="mt-1 capitalize text-slate-500">{user.role}</p><button className="mt-3 w-full rounded-md border border-slate-300 px-3 py-2 text-left font-medium text-slate-700 hover:bg-slate-50" onClick={onSignOut} type="button">Sign out</button></div></details></div>;
 }
 
 function SignIn({ onAuthenticated }: { onAuthenticated: (user: AuthUser) => void }) {

@@ -3,7 +3,7 @@ import type { paths } from "./schema.gen";
 
 export type { paths, components, operations } from "./schema.gen";
 
-const authenticatedFetch: typeof fetch = (input, init) => {
+export const authenticatedFetch: typeof fetch = (input, init) => {
   const headers = new Headers(init?.headers);
   if (typeof window !== "undefined") {
     const token = window.localStorage.getItem("reimburst.access_token");
