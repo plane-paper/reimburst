@@ -10,13 +10,15 @@ from datetime import date, datetime
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, Field, model_validator
 from shared.enums import ExtractionStatus, RequestStatus, UserRole
-from shared.models import AuditEvent, Category, LineItem, Receipt, ReimbursementRequest
+from shared.models import AuditEvent, Category, LineItem, Receipt, ReimbursementRequest, User
 from shared.workflow import InvalidRequestTransition, transition_audit_event
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import session_factory
 from app.jobs import enqueue
-from app.ownership import development_organization_actor
+from app.notifications import create_notifications
+from app.ownership import development_organization_actor, organization_member
 
 router = APIRouter(prefix="/organization/requests", tags=["organization requests"])
 
@@ -72,6 +74,18 @@ class OrganizationRequestDetail(BaseModel):
     receipt_ids: list[int]
     receipts: list[OrganizationReceiptDetail]
     audit_events: list[AuditEventDetail]
+
+
+async def approver_ids(session: AsyncSession, org_id: int) -> list[int]:
+    """Return every organization member who may review a submitted request."""
+    return list(
+        await session.scalars(
+            select(User.id).where(
+                User.org_id == org_id,
+                User.role.in_((UserRole.APPROVER, UserRole.ADMIN)),
+            )
+        )
+    )
 
 
 async def mark_synopsis_enqueue_failed(request_id: int, detail: str) -> None:
@@ -250,6 +264,14 @@ async def submit_organization_request(
         reimbursement.synopsis_status = ExtractionStatus.PENDING
         reimbursement.synopsis_error = None
         session.add(event)
+        create_notifications(
+            session,
+            await approver_ids(session, reimbursement.org_id),
+            request_id=reimbursement.id,
+            kind="request_submitted",
+            title=f"Request #{reimbursement.id} needs review",
+            body="An employee submitted a reimbursement request for your approval.",
+        )
         await session.commit()
     await enqueue_synopsis(request, request_id)
     return await request_detail(request_id)
@@ -333,6 +355,18 @@ async def review_organization_request(
             raise HTTPException(status_code=409, detail=str(error)) from error
         reimbursement.status = target_status
         session.add(event)
+        outcome = "approved" if target_status is RequestStatus.APPROVED else "rejected"
+        create_notifications(
+            session,
+            [reimbursement.employee_id],
+            request_id=reimbursement.id,
+            kind=f"request_{outcome}",
+            title=f"Request #{reimbursement.id} was {outcome}",
+            body=(
+                f"Your reimbursement request was {outcome}."
+                + (f" Note: {note}" if note else "")
+            ),
+        )
         await session.commit()
     return await request_detail(request_id)
 
@@ -353,9 +387,11 @@ async def my_organization_requests() -> list[OrganizationRequestDetail]:
 
 @router.get("/{request_id}", response_model=OrganizationRequestDetail)
 async def get_organization_request(request_id: int) -> OrganizationRequestDetail:
-    actor = await development_organization_actor(UserRole.EMPLOYEE)
+    actor = await organization_member()
     async with session_factory()() as session:
         reimbursement = await session.get(ReimbursementRequest, request_id)
         if reimbursement is None or reimbursement.org_id != actor.org_id:
+            raise HTTPException(status_code=404, detail="Organization request not found")
+        if actor.role is UserRole.EMPLOYEE and reimbursement.employee_id != actor.id:
             raise HTTPException(status_code=404, detail="Organization request not found")
     return await request_detail(request_id)

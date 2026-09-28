@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from shared.models import Notification
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import current_user
 from app.database import session_factory
@@ -33,6 +34,28 @@ def serialize(notification: Notification) -> NotificationDetail:
         read_at=notification.read_at,
         created_at=notification.created_at,
     )
+
+
+def create_notifications(
+    session: AsyncSession,
+    user_ids: list[int],
+    *,
+    request_id: int,
+    kind: str,
+    title: str,
+    body: str,
+) -> None:
+    """Queue distinct notifications in the caller's workflow transaction."""
+    for user_id in set(user_ids):
+        session.add(
+            Notification(
+                user_id=user_id,
+                request_id=request_id,
+                kind=kind,
+                title=title,
+                body=body,
+            )
+        )
 
 
 @router.get("", response_model=list[NotificationDetail])

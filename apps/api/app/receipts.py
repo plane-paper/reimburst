@@ -6,13 +6,13 @@ from typing import Annotated
 from fastapi import APIRouter, File, HTTPException, Request, Response, UploadFile, status
 from pydantic import BaseModel, Field, model_validator
 from shared.enums import ExtractionStatus, UserRole
-from shared.models import Category, LineItem, Receipt
+from shared.models import Category, LineItem, Receipt, ReimbursementRequest
 from shared.storage import ObjectStorage, object_storage_from_environment
 from sqlalchemy import select
 
 from app.database import session_factory
 from app.jobs import enqueue
-from app.ownership import development_organization_actor, development_owner_id
+from app.ownership import development_organization_actor, development_owner_id, organization_member
 
 router = APIRouter(prefix="/receipts", tags=["receipts"])
 organization_router = APIRouter(prefix="/organization/receipts", tags=["organization receipts"])
@@ -127,12 +127,22 @@ async def create_organization_receipt(
     },
 )
 async def organization_receipt_image(receipt_id: int, request: Request) -> Response:
-    """Serve a receipt image to an organization member during local P4 development."""
-    employee = await development_organization_actor(UserRole.EMPLOYEE)
+    """Serve a receipt image to its employee or a same-org authorized reviewer."""
+    actor = await organization_member()
     async with session_factory()() as session:
         receipt = await session.get(Receipt, receipt_id)
-        if receipt is None or receipt.owner_id != employee.id:
+        if receipt is None:
             raise HTTPException(status_code=404, detail="Receipt not found")
+        if actor.role is UserRole.EMPLOYEE and receipt.owner_id != actor.id:
+            raise HTTPException(status_code=404, detail="Receipt not found")
+        if actor.role in {UserRole.APPROVER, UserRole.ADMIN}:
+            reimbursement = (
+                await session.get(ReimbursementRequest, receipt.request_id)
+                if receipt.request_id is not None
+                else None
+            )
+            if reimbursement is None or reimbursement.org_id != actor.org_id:
+                raise HTTPException(status_code=404, detail="Receipt not found")
     try:
         content = await object_storage(request).get(receipt.image_key)
     except FileNotFoundError as error:
