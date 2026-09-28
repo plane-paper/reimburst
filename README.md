@@ -92,5 +92,16 @@ Use `--role approver` for approval-queue users or `--role admin` for an
 organization administrator (admins may approve requests). Employees only see
 their own receipts and requests; approvers only see their organization’s pending
 approval queue. The API checks the database role on every request, so changing a
-client-side view or a token claim cannot escalate access. P6 adds payout
-dispatch.
+client-side view or a token claim cannot escalate access.
+
+Workflow notifications are stored in the database and appear in the portal’s
+Notifications menu. Submitting a request notifies all approvers and admins in
+the organization; approving or rejecting it notifies the submitting employee,
+including any decision note. Notifications can be marked read and are visible
+only to their intended user. Apply the latest Alembic migration before starting
+the updated API.
+
+The portal’s protected organization receipt previews and personal-spending CSV
+exports are fetched with the active bearer token. A persistent account menu
+includes sign-out, and unexpected page failures provide a retry screen. P6 adds
+payout dispatch.
