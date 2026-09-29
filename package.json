@@ -1,9 +1,9 @@
 {
   "name": "reimburse",
   "private": true,
-  "packageManager": "pnpm@12.5.1",
+  "packageManager": "yarn@4.18.1",
   "scripts": {
-    "dev": "turbo run dev",
+    "dev": "env -u NODE_OPTIONS sh -c 'cd apps/web && ./node_modules/.bin/next dev --webpack -p 3000'",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
