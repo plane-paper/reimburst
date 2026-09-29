@@ -1,6 +1,20 @@
 # reimburst
 Reimbursement automation service
 
+## Web development
+
+The web workspace is managed with Yarn 4. Install its dependencies from the
+repository root, then start the development server:
+
+```sh
+corepack enable
+yarn install
+yarn start
+```
+
+`yarn start` runs the Next.js development server for `apps/web` on port 3000.
+`yarn dev` is an equivalent alias.
+
 ## Individual mode (P1 / P2 / P3)
 
 The receipt path is `POST /receipts` → object storage → ARQ → Azure Document

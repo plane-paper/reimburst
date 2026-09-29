@@ -1,13 +1,18 @@
 {
   "name": "reimburse",
   "private": true,
-  "packageManager": "pnpm@12.5.1",
+  "packageManager": "yarn@4.18.1",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "turbo run dev",
+    "dev": "yarn workspace web dev",
+    "start": "yarn workspace web dev",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
-    "contract:generate": "uv run --package api python apps/api/scripts/export_openapi.py && pnpm --filter @reimburse/contract generate"
+    "contract:generate": "uv run --package api python apps/api/scripts/export_openapi.py && yarn workspace @reimburse/contract generate"
   },
   "devDependencies": {
     "turbo": "^2.10.5"
