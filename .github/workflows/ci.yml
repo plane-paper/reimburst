@@ -14,13 +14,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
         with:
           node-version: "24"
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm lint
+      - run: corepack enable
+      - run: yarn install --immutable
+      - run: yarn lint
       - uses: astral-sh/setup-uv@v8.3.2
         with:
           enable-cache: true
@@ -31,13 +30,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
         with:
           node-version: "24"
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck
+      - run: corepack enable
+      - run: yarn install --immutable
+      - run: yarn typecheck
       - uses: astral-sh/setup-uv@v8.3.2
         with:
           enable-cache: true
@@ -58,13 +56,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
         with:
           node-version: "24"
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter web build
+      - run: corepack enable
+      - run: yarn install --immutable
+      - run: yarn workspace web build
       - name: Build API image
         run: docker build -f apps/api/Dockerfile -t reimburse-api .
       - name: Build worker image

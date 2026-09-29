@@ -218,5 +218,8 @@ __marimo__/
 .streamlit/secrets.toml
 node_modules
 
+# Yarn local installation state
+.yarn/install-state.gz
+
 # Turborepo
 .turbo/
