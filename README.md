@@ -1,100 +1,157 @@
-# reimburst
-Reimbursement automation service
+# Reimburst
 
-## Web development
+**Turn receipt images into reviewable reimbursement requests.** Reimburst extracts receipt data, categorizes expenses, and supports both personal reimbursement emails and an organization approval workflow.
 
-The web workspace is managed with Yarn 4. Install its dependencies from the
-repository root, then start the development server:
+## What it does
+
+- Upload JPEG, PNG, or WebP receipt images (up to 10 MB).
+- Extract merchant, date, currency, totals, tax, and line items with Azure Document Intelligence.
+- Categorize line items with a constrained expense taxonomy and flag uncertain classifications for review.
+- Reconcile extracted line items against the receipt total before confirmation.
+- Track personal spending with date, merchant, and category filters, plus CSV export.
+- Generate editable reimbursement-email drafts for external payers; copy, download as `.eml`, and mark them sent.
+- Run organization reimbursements from capture through submission, review, approval or rejection, and a manual-payroll CSV payout export.
+- Enforce individual, employee, approver, and admin roles; keep request audit history and deliver in-app notifications.
+
+## Architecture
+
+| Component | Responsibility | Local address |
+| --- | --- | --- |
+| Next.js portal | Sign-in, receipt capture, spending, requests, and organization workflows | <http://localhost:3000> |
+| FastAPI service | REST API, authentication, persistence, and job enqueueing | <http://localhost:8000> |
+| ARQ worker | OCR, categorization, and AI draft/synopsis jobs | — |
+| PostgreSQL | Application data and audit history | `localhost:5432` |
+| Redis | Background-job queue | `localhost:6379` |
+
+## Prerequisites
+
+- [Node.js](https://nodejs.org/) with Corepack enabled (the repo pins Yarn 4).
+- [Python 3.13+](https://www.python.org/) and [uv](https://docs.astral.sh/uv/).
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) or Docker Engine with Compose.
+- An Azure Document Intelligence endpoint and key for receipt extraction.
+- An OpenAI API key for line-item categorization and draft/synopsis generation.
+
+## Get running locally
+
+The following starts every local dependency and application component. Run the API, worker, and portal in separate terminals after completing the one-time setup.
+
+### 1. Install dependencies
+
+From the repository root:
 
 ```sh
 corepack enable
 yarn install
-yarn start
+uv sync --all-packages
 ```
 
-`yarn start` runs the Next.js development server for `apps/web` on port 3000.
-`yarn dev` is an equivalent alias.
+### 2. Configure your environment
 
-## Individual mode (P1 / P2 / P3)
+Copy the template and fill in the required values:
 
-The receipt path is `POST /receipts` → object storage → ARQ → Azure Document
-Intelligence → `GET /receipts/{id}`. Run Postgres and Redis with
-`docker compose up -d`, apply the API migrations, start the API and worker, and
-set these environment variables in both processes:
+```sh
+cp .env.example .env
+```
 
-```text
+For a standard local setup, use these settings in `.env` (replace the placeholder values):
+
+```dotenv
+# Required: receipt extraction and AI assistance
+AZURE_DI_ENDPOINT=https://<resource>.cognitiveservices.azure.com
+AZURE_DI_KEY=<azure-document-intelligence-key>
+OPENAI_API_KEY=<openai-api-key>
+
+# Required: service infrastructure and authentication
 DATABASE_URL=postgresql+asyncpg://reimburse:reimburse@localhost:5432/reimburse
 REDIS_URL=redis://localhost:6379
-AZURE_DI_ENDPOINT=https://<resource>.cognitiveservices.azure.com
-AZURE_DI_KEY=<key>
-OPENAI_API_KEY=<key>
+AUTH_SECRET=<a-long-random-secret>
+
+# Required by the browser app; this is safe to expose to the browser
+NEXT_PUBLIC_API_URL=http://localhost:8000
+CORS_ORIGINS=http://localhost:3000
+
+# Optional: these are the local-development defaults
+STORAGE_BACKEND=local
+LOCAL_STORAGE_PATH=/tmp/reimburst-uploads
 # OPENAI_CATEGORIZATION_MODEL=gpt-4o-mini
+# OPENAI_SYNOPSIS_MODEL=gpt-4o-mini
 ```
 
-After OCR completes, the worker categorizes each line item asynchronously with
-taxonomy-constrained structured output. The built-in global taxonomy is
-`hotel`, `food`, `essentials`, `transport`, `office_supplies`, `other`, and
-`uncategorized`; low-confidence and fallback assignments are returned with a
-human-review flag. `GET /receipts/taxonomy` exposes this same taxonomy to the
-client.
+Load the variables into each terminal before starting the API or worker:
 
-Confirmed receipts are available in the personal spending report at `/spending`,
-including date, merchant, and category filters plus CSV export. At `/requests`,
-an individual can select confirmed line items across receipts, specify an
-external payer, and generate an editable reimbursement email draft. Generation
-runs in ARQ using `OPENAI_SYNOPSIS_MODEL` (default `gpt-4o-mini`); drafts can be
-copied or downloaded as `.eml`, then marked sent after the user sends them with
-their own email client. Request history retains the covered items and generated
-or sent timestamps, preventing already-requested items from being selected
-again.
-
-For local development, storage defaults to `STORAGE_BACKEND=local` and writes
-to `LOCAL_STORAGE_PATH` (default: `/tmp/reimburst-uploads`). For deployment,
-set the following in both the API and worker so they use the same durable,
-S3-compatible bucket:
-
-```text
-STORAGE_BACKEND=s3
-S3_BUCKET=<bucket>
-AWS_REGION=<region>
-# S3_ENDPOINT_URL=<endpoint>  # required only for S3-compatible providers
+```sh
+set -a
+source .env
+set +a
 ```
 
-Credentials are supplied through boto3's normal AWS credential provider chain
-(for example, workload identity or `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`).
+Keep `.env` private. It is ignored by Git and must never be committed.
 
-## Organization workflow (P4)
+### 3. Start PostgreSQL and Redis
 
-The organization workspace is available at `/organization`. It includes an
-employee view for organization receipt capture, review/confirmation, selecting
-confirmed unassigned receipts in one currency, draft creation, and submission.
-The approver view lists submitted requests and shows their receipt image,
-categorized breakdown, asynchronous synopsis, and immutable audit history;
-requests can be approved or rejected with an optional note.
+```sh
+docker compose up -d
+docker compose ps
+```
 
-The supporting endpoints are `POST /organization/receipts`,
-`GET /organization/receipts/available`, `POST /organization/requests`,
-`GET /organization/requests/mine`, `GET /organization/requests/pending`, and
-the request submit/approve/reject routes. A failed organization synopsis can be
-re-enqueued with `POST /organization/requests/{id}/retry-synopsis`; the workflow
-state is unchanged. Receipt previews are available through
-`GET /organization/receipts/{id}/image`; organization receipt polling and
-confirmation use the scoped `GET /organization/receipts/{id}` and
-`PUT /organization/receipts/{id}/confirmation` routes.
+Both services should report healthy before continuing. To stop them later, run `docker compose down`; named volumes preserve local data.
 
-## Authentication and roles (P5)
+### 4. Apply database migrations
 
-All portal and API workflow requests now require a bearer token. Set a strong,
-unique `AUTH_SECRET` in the API environment before starting the service. The web
-portal provides registration and sign-in; self-registration creates an
-`individual` account only. Individual accounts can use personal receipts,
-spending, and outbound requests, but cannot access organization routes.
+With the environment loaded:
 
-Organization accounts are provisioned through a trusted operator shell so a
-visitor cannot select a privileged role. The command creates the named
-organization when needed:
+```sh
+uv run --package api alembic -c apps/api/alembic.ini upgrade head
+```
 
-```text
+### 5. Start the applications
+
+In terminal 1, start the API:
+
+```sh
+set -a; source .env; set +a
+yarn workspace api dev
+```
+
+In terminal 2, start the background worker:
+
+```sh
+set -a; source .env; set +a
+uv run --package worker arq worker.settings.WorkerSettings
+```
+
+In terminal 3, start the portal:
+
+```sh
+set -a; source .env; set +a
+yarn dev
+```
+
+Open <http://localhost:3000>. You can verify the API independently at <http://localhost:8000/health>, which returns `{"status":"ok"}`.
+
+### 6. Create an account and try the flow
+
+1. Register in the portal with an email and a password of at least 12 characters.
+2. Select **Scan Receipt** and upload a receipt image.
+3. Wait for extraction and categorization to complete, inspect the values, and confirm the receipt.
+4. Use **Spending** to review confirmed items or **My Requests** to produce an editable reimbursement email.
+
+The worker performs OCR and AI tasks asynchronously. If a receipt remains in a processing state, confirm that the worker is running and that Azure, OpenAI, Redis, and database configuration is available to it.
+
+## Workflows and roles
+
+### Personal reimbursement
+
+Individual users can capture and confirm receipts, inspect their categorized spending, export a filtered CSV, and select confirmed line items to generate a reimbursement email for an external payer. Items included in generated or sent requests cannot be selected again. Email artifacts remain editable and can be copied or downloaded before the user sends them through their own mail client.
+
+### Organization reimbursement
+
+Organization employees capture and confirm receipts, select unassigned receipts in a single currency, create a draft, and submit it. Approvers and admins see pending requests with receipt previews, categorized breakdowns, an AI-generated synopsis, and immutable audit events; they can approve or reject with an optional note. Organization admins can export an approved request as a payroll CSV, which marks it paid. Payout exports are idempotent: repeating an export returns the same frozen row rather than creating a duplicate payout.
+
+Self-registration only creates an `individual` account. Provision organization accounts from a trusted operator shell:
+
+```sh
+set -a; source .env; set +a
 uv run --package api python apps/api/scripts/provision_user.py \
   --email employee@example.com \
   --password '<at-least-12-character-password>' \
@@ -102,33 +159,75 @@ uv run --package api python apps/api/scripts/provision_user.py \
   --organization 'Example Co'
 ```
 
-Use `--role approver` for approval-queue users or `--role admin` for an
-organization administrator (admins may approve requests). Employees only see
-their own receipts and requests; approvers only see their organization’s pending
-approval queue. The API checks the database role on every request, so changing a
-client-side view or a token claim cannot escalate access.
+Use `--role approver` for reviewers and `--role admin` for organization administrators. Role checks are enforced by the API; a browser-side change cannot grant additional access.
 
-Workflow notifications are stored in the database and appear in the portal’s
-Notifications menu. Submitting a request notifies all approvers and admins in
-the organization; approving or rejecting it notifies the submitting employee,
-including any decision note. Notifications can be marked read and are visible
-only to their intended user. Apply the latest Alembic migration before starting
-the updated API.
+## Configuration and deployment notes
 
-The portal’s protected organization receipt previews and personal-spending CSV
-exports are fetched with the active bearer token. A persistent account menu
-includes sign-out, and unexpected page failures provide a retry screen.
+| Setting | Required | Purpose |
+| --- | --- | --- |
+| `DATABASE_URL` | Yes | Async PostgreSQL connection URL. |
+| `REDIS_URL` | Yes | ARQ job queue connection URL. |
+| `AUTH_SECRET` | Yes | Strong, unique secret used to sign 12-hour bearer tokens. |
+| `AZURE_DI_ENDPOINT`, `AZURE_DI_KEY` | Yes for receipt processing | Azure Document Intelligence credentials. |
+| `OPENAI_API_KEY` | Yes for categorization and generated drafts | OpenAI credentials for background AI jobs. |
+| `NEXT_PUBLIC_API_URL` | Yes for a non-default API URL | Browser-visible API base URL. |
+| `CORS_ORIGINS` | Production | Comma-separated allowed portal origins; defaults to `http://localhost:3000`. |
+| `STORAGE_BACKEND` | No | `local` (default) or `s3`. |
+| `LOCAL_STORAGE_PATH` | No | Local receipt directory; defaults to `/tmp/reimburst-uploads`. |
 
-## Payroll CSV fallback (P6)
+For production, use durable object storage and set the same values for the API and worker:
 
-An organization admin can select an approved request from the organization
-workspace and choose **Export payroll CSV and mark paid**. This calls
-`POST /organization/requests/{id}/payout.csv`, downloads one manual-payroll
-row, and transitions the request from `approved` to `paid`. The row contains
-the employee email, integer `amount_cents`, currency, request ID, and its
-idempotency key.
+```dotenv
+STORAGE_BACKEND=s3
+S3_BUCKET=<bucket>
+AWS_REGION=<region>
+# S3_ENDPOINT_URL=<endpoint>  # Needed for an S3-compatible provider
+```
 
-Each request has exactly one payout row and a deterministic key of the form
-`csv:payout:{request_id}`. Repeating the endpoint returns the same frozen CSV
-row and does not create another payout or another workflow transition. Apply
-the latest Alembic migration before enabling exports.
+Provide AWS credentials through the standard boto3 credential chain, such as workload identity or `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`. Use a production database and Redis instance, set a unique `AUTH_SECRET`, restrict `CORS_ORIGINS` to deployed portal origins, and run migrations before deploying a new API version.
+
+## Developer commands
+
+```sh
+# Web application checks and production build
+yarn lint
+yarn typecheck
+yarn build
+
+# Python checks and API tests
+uv run --package api ruff check .
+uv run --package api pytest apps/api/tests
+uv run --package api mypy py/shared/shared apps/api/app apps/worker/worker
+
+# Refresh the generated TypeScript contract from the API schema
+yarn contract:generate
+```
+
+## Project layout
+
+```text
+apps/api/       FastAPI application, Alembic migrations, and provisioning scripts
+apps/worker/    ARQ background jobs for extraction and AI enrichment
+apps/web/       Next.js portal
+packages/       Shared TypeScript contract and utilities
+py/shared/      Shared Python models, OCR, storage, and AI providers
+```
+
+## Roadmap
+
+The items below are planned directions, not features currently available in the product:
+
+- Configurable organization-specific taxonomies and reimbursement policies.
+- Direct accounting, payroll, and email-provider integrations.
+- Multi-currency conversion and policy-aware per-diem support.
+- Receipt deduplication, stronger anomaly detection, and richer review controls.
+- Team administration, reporting dashboards, and export integrations.
+- Production deployment automation, observability, and operational runbooks.
+
+## Troubleshooting
+
+- **API returns authentication errors:** ensure `AUTH_SECRET` is present in the API process and sign in again to obtain a new token.
+- **Receipt processing fails or stalls:** check the worker logs first, then verify `REDIS_URL`, `DATABASE_URL`, Azure credentials, and the receipt format/size.
+- **Categorization or draft generation fails:** verify `OPENAI_API_KEY`; extraction can complete even if a later AI job fails.
+- **Browser cannot reach the API:** ensure the API is on port 8000, `NEXT_PUBLIC_API_URL` is correct when the portal starts, and `CORS_ORIGINS` includes the portal origin.
+- **Database schema errors after pulling changes:** rerun the Alembic upgrade command from the setup steps.
