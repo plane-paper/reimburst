@@ -395,6 +395,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organization/requests/{request_id}/payout.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export Csv Payout
+         * @description Dispatch an approved request through the manual CSV payroll fallback.
+         *
+         *     A request owns one deterministic key and one payout row. Repeating this
+         *     endpoint returns the same frozen CSV row, rather than creating a second
+         *     payable export or repeating the `approved -> paid` transition.
+         */
+        post: operations["export_csv_payout_organization_requests__request_id__payout_csv_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organization/requests/{request_id}/submit": {
         parameters: {
             query?: never;
@@ -441,6 +465,26 @@ export interface paths {
         };
         /** Pending Organization Requests */
         get: operations["pending_organization_requests_organization_requests_pending_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organization/requests/approved": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Approved Organization Requests
+         * @description List admin-visible requests awaiting the manual payroll CSV export.
+         */
+        get: operations["approved_organization_requests_organization_requests_approved_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1623,6 +1667,35 @@ export interface operations {
             };
         };
     };
+    export_csv_payout_organization_requests__request_id__payout_csv_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     submit_organization_request_organization_requests__request_id__submit_post: {
         parameters: {
             query?: never;
@@ -1686,6 +1759,26 @@ export interface operations {
         };
     };
     pending_organization_requests_organization_requests_pending_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationRequestDetail"][];
+                };
+            };
+        };
+    };
+    approved_organization_requests_organization_requests_approved_get: {
         parameters: {
             query?: never;
             header?: never;
