@@ -1,17 +1,49 @@
-# Reimburst
+<div align="center">
 
-**Turn receipt images into reviewable reimbursement requests.** Reimburst extracts receipt data, categorizes expenses, and supports both personal reimbursement emails and an organization approval workflow.
+<h1>Reimburst</h1>
 
-## What it does
+<h3>Receipt intelligence for reimbursement teams</h3>
 
-- Upload JPEG, PNG, or WebP receipt images (up to 10 MB).
-- Extract merchant, date, currency, totals, tax, and line items with Azure Document Intelligence.
-- Categorize line items with a constrained expense taxonomy and flag uncertain classifications for review.
-- Reconcile extracted line items against the receipt total before confirmation.
-- Track personal spending with date, merchant, and category filters, plus CSV export.
-- Generate editable reimbursement-email drafts for external payers; copy, download as `.eml`, and mark them sent.
-- Run organization reimbursements from capture through submission, review, approval or rejection, and a manual-payroll CSV payout export.
-- Enforce individual, employee, approver, and admin roles; keep request audit history and deliver in-app notifications.
+<p>Turn receipt images into reviewable reimbursement requests—then move them from capture to payout with a clear audit trail.</p>
+
+<p>
+  <code>Next.js</code> &nbsp;•&nbsp; <code>FastAPI</code> &nbsp;•&nbsp; <code>PostgreSQL</code> &nbsp;•&nbsp; <code>Redis</code> &nbsp;•&nbsp; <code>Azure AI</code>
+</p>
+
+<p>
+  <a href="#quick-start"><strong>Quick start</strong></a> &nbsp;·&nbsp;
+  <a href="#workflows-and-roles">Workflows</a> &nbsp;·&nbsp;
+  <a href="#configuration-and-deployment-notes">Deployment</a> &nbsp;·&nbsp;
+  <a href="#roadmap">Roadmap</a>
+</p>
+
+</div>
+
+---
+
+## Highlights
+
+| | |
+| --- | --- |
+| **Receipt capture** | Upload JPEG, PNG, or WebP images; extract merchant, date, currency, totals, tax, and line items. |
+| **Guided review** | Categorize expenses with a constrained taxonomy, flag uncertainty, and reconcile line items before confirmation. |
+| **Personal spending** | Filter confirmed spending by date, merchant, and category, then export CSV data. |
+| **Reimbursement drafts** | Generate editable email drafts, copy or download `.eml` artifacts, and prevent duplicate requests. |
+| **Organization workflow** | Submit, review, approve or reject requests, retain audit history, and export idempotent payroll CSV payouts. |
+| **Role-aware access** | Separate individual, employee, approver, and admin permissions with in-app notifications. |
+
+## System overview
+
+```mermaid
+flowchart LR
+    U["User"] --> W["Web portal"]
+    W --> A["FastAPI service"]
+    A --> D[(PostgreSQL)]
+    A --> Q[(Redis queue)]
+    Q --> K["ARQ worker"]
+    K --> X["Azure Document Intelligence"]
+    K --> O["OpenAI"]
+```
 
 ## Architecture
 
@@ -31,7 +63,7 @@
 - An Azure Document Intelligence endpoint and key for receipt extraction.
 - An OpenAI API key for line-item categorization and draft/synopsis generation.
 
-## Get running locally
+## Quick start
 
 The following starts every local dependency and application component. Run the API, worker, and portal in separate terminals after completing the one-time setup.
 
@@ -138,6 +170,9 @@ Open <http://localhost:3000>. You can verify the API independently at <http://lo
 
 The worker performs OCR and AI tasks asynchronously. If a receipt remains in a processing state, confirm that the worker is running and that Azure, OpenAI, Redis, and database configuration is available to it.
 
+> [!TIP]
+> Start with an individual account to explore the full capture-to-draft path. Organization accounts require trusted operator provisioning, described below.
+
 ## Workflows and roles
 
 ### Personal reimbursement
@@ -162,6 +197,8 @@ uv run --package api python apps/api/scripts/provision_user.py \
 Use `--role approver` for reviewers and `--role admin` for organization administrators. Role checks are enforced by the API; a browser-side change cannot grant additional access.
 
 ## Configuration and deployment notes
+
+> In production, the API and worker must share the same database, Redis queue, storage configuration, and secrets.
 
 | Setting | Required | Purpose |
 | --- | --- | --- |
@@ -215,7 +252,8 @@ py/shared/      Shared Python models, OCR, storage, and AI providers
 
 ## Roadmap
 
-The items below are planned directions, not features currently available in the product:
+
+> These are planned directions, not features currently available in the product.
 
 - Configurable organization-specific taxonomies and reimbursement policies.
 - Direct accounting, payroll, and email-provider integrations.
