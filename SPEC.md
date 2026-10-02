@@ -275,7 +275,7 @@ All monetary columns are integer cents. `status` and `role` are enums. Receipts 
 | **P3** | Individual mode | **Complete (2026-09-24):** personal spending history and CSV reports; confirmed-item selection across receipts; asynchronous LLM synopsis and editable outbound email artifact; user-driven copy/download and sent tracking with request history. Self-contained; needs no approver or payroll. *(`FR-IND-*`, `FR-SYN-*`, `FR-FE-IND`)* | 2–3 weeks |
 | **P4** | Org workflow | **Complete (2026-09-26):** organization capture, employee draft/submit workflow, asynchronous synopsis with retry, approver queue/detail/decisions, receipt previews, and immutable transition audits. *(`FR-WF-*`, `FR-SYN-*`, `FR-FE-ORG`)* | 2–3 weeks |
 | **P5** | Auth, RBAC, notifications, polish | **Complete (2026-09-28):** password authentication, database-enforced role gates, durable in-app workflow notifications, audit-trail/request access, and recoverable portal error states. *(`FR-AUTH-01/02`, `FR-NOTE-*`)* | 1–2 weeks |
-| **P6** | Payout & integration | `PayrollProvider` with CSV fallback first, then Employment Hero adapter (idempotent). *(`FR-PAY-*`, `INT-01`)* | 2–4 weeks (high variance) |
+| **P6** | Payout & integration | **CSV fallback delivered (2026-10-01):** admin-only, idempotent CSV dispatch for approved organization requests, with a frozen payout snapshot and paid audit transition. Employment Hero remains the next adapter. *(`FR-PAY-01/02/03`; `INT-01` pending)* | 2–4 weeks (high variance) |
 | **P7 (DEFERRED)** | Multi-tenant + SSO/SAML + Workday | Tenant scoping, WorkOS SSO, org management, Workday adapter. *(`FR-AUTH-03/04`, `INT-02`)* | — |
 
 **Realistic target: ~4–5 months part-time to a usable MVP.** Note the sequencing advantage: after P3, **individual mode is a complete, shippable product on its own** (scan → categorize → report → generate request) with no dependency on the organization workflow or payroll — a natural first release and de-risking milestone. Organization mode (P4–P6) then builds on the same pipeline.
@@ -286,7 +286,7 @@ All monetary columns are integer cents. `status` and `role` are enums. Receipts 
 
 ## 9. Where We Left Off
 
-**Current phase: P6 — Payout & integration (2026-09-28).** P5 authentication, RBAC, notifications, and portal polish are complete. P6 adds idempotent payout dispatch with CSV export as the initial provider.
+**Current phase: P6 — Payout & integration (2026-10-01).** P5 authentication, RBAC, notifications, and portal polish are complete. The initial CSV fallback is now delivered; Employment Hero remains the next provider adapter.
 
 ### P4 delivered — organization capture, employee workflow, and approval
 
@@ -306,6 +306,14 @@ All monetary columns are integer cents. `status` and `role` are enums. Receipts 
 - The shared portal shell includes the notification center and account sign-out. Protected receipt images and CSV exports use authenticated browser requests, and a global retryable error boundary provides a recoverable failure state.
 
 **P5 exit criterion: met.** Authentication and role boundaries are enforced by the API, workflow participants receive durable in-app notifications, and the portal exposes the audit trail plus explicit recovery paths for failed UI operations. Payout dispatch remains P6 work.
+
+### P6 CSV fallback delivered — idempotent manual payroll export
+
+- An admin can export one approved organization request from the payroll queue through `POST /organization/requests/{id}/payout.csv`. The response is a downloadable CSV with the employee email, request ID, integer cents, ISO currency, and idempotency key.
+- Dispatch records an immutable `approved → paid` audit transition, including the exported amount and key. It persists a payout snapshot before responding, so later receipt/user changes cannot alter a retry export.
+- The per-request key is deterministic (`csv:payout:{request_id}`), and `payouts.request_id` is unique. A retry returns the existing frozen row without another payout record or state transition. Only organization admins may dispatch payroll exports.
+
+**P6 CSV fallback exit criterion: met.** The v1 manual-payroll path is available behind a swappable `PayrollProvider` boundary and is idempotent under retry. Employment Hero (`INT-01`) remains P6 follow-on work.
 
 ---
 
