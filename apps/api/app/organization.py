@@ -7,12 +7,21 @@ change the state machine's security rules.
 
 from datetime import date, datetime
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field, model_validator
-from shared.enums import ExtractionStatus, RequestStatus, UserRole
-from shared.models import AuditEvent, Category, LineItem, Receipt, ReimbursementRequest, User
+from shared.enums import ExtractionStatus, PayoutStatus, RequestStatus, UserRole
+from shared.models import (
+    AuditEvent,
+    Category,
+    LineItem,
+    Payout,
+    Receipt,
+    ReimbursementRequest,
+    User,
+)
+from shared.payroll import CsvPayrollProvider, PayoutExport
 from shared.workflow import InvalidRequestTransition, transition_audit_event
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import session_factory
@@ -21,6 +30,7 @@ from app.notifications import create_notifications
 from app.ownership import development_organization_actor, organization_member
 
 router = APIRouter(prefix="/organization/requests", tags=["organization requests"])
+csv_payroll_provider = CsvPayrollProvider()
 
 
 class OrganizationRequestCreate(BaseModel):
@@ -236,6 +246,87 @@ async def create_organization_request(
     return await request_detail(request_id)
 
 
+def payout_export(payout: Payout) -> PayoutExport:
+    """Turn a persisted payout snapshot into a provider-neutral export row."""
+    return PayoutExport(
+        request_id=payout.request_id,
+        employee_email=payout.employee_email,
+        amount_cents=payout.amount_cents,
+        currency=payout.currency,
+        idempotency_key=payout.idempotency_key,
+    )
+
+
+@router.post("/{request_id}/payout.csv", response_class=Response)
+async def export_csv_payout(request_id: int) -> Response:
+    """Dispatch an approved request through the manual CSV payroll fallback.
+
+    A request owns one deterministic key and one payout row. Repeating this
+    endpoint returns the same frozen CSV row, rather than creating a second
+    payable export or repeating the `approved -> paid` transition.
+    """
+    actor = await development_organization_actor(UserRole.ADMIN)
+    async with session_factory()() as session:
+        reimbursement = await session.get(ReimbursementRequest, request_id)
+        if reimbursement is None or reimbursement.org_id != actor.org_id:
+            raise HTTPException(status_code=404, detail="Organization request not found")
+
+        existing = await session.scalar(select(Payout).where(Payout.request_id == request_id))
+        if existing is not None:
+            if existing.provider != csv_payroll_provider.name:
+                raise HTTPException(
+                    status_code=409, detail="Payout belongs to a different provider"
+                )
+            export = payout_export(existing)
+        else:
+            if reimbursement.status is not RequestStatus.APPROVED:
+                raise HTTPException(status_code=409, detail="Only approved requests can be paid")
+            employee = await session.get(User, reimbursement.employee_id)
+            if employee is None:
+                raise HTTPException(status_code=409, detail="Request employee no longer exists")
+            amount_cents = await session.scalar(
+                select(func.coalesce(func.sum(LineItem.amount_cents), 0))
+                .join(Receipt, Receipt.id == LineItem.receipt_id)
+                .where(Receipt.request_id == reimbursement.id)
+            )
+            if amount_cents is None or amount_cents <= 0:
+                raise HTTPException(
+                    status_code=409, detail="Approved request has no payable line items"
+                )
+
+            # The request ID is intentionally part of a deterministic key. The
+            # database also makes request_id unique, which closes retry races.
+            payout = Payout(
+                request_id=reimbursement.id,
+                provider=csv_payroll_provider.name,
+                idempotency_key=f"csv:payout:{reimbursement.id}",
+                employee_email=employee.email,
+                amount_cents=amount_cents,
+                currency=reimbursement.currency,
+                status=PayoutStatus.SUCCEEDED,
+            )
+            event = transition_audit_event(
+                reimbursement.id, actor.id, reimbursement.status, RequestStatus.PAID
+            )
+            event.payload = {
+                **(event.payload or {}),
+                "amount_cents": str(amount_cents),
+                "currency": reimbursement.currency,
+                "idempotency_key": payout.idempotency_key,
+            }
+            reimbursement.status = RequestStatus.PAID
+            session.add(payout)
+            session.add(event)
+            await session.commit()
+            export = payout_export(payout)
+
+    return Response(
+        content=csv_payroll_provider.export([export]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="payout-request-{request_id}.csv"'},
+    )
+
+
 @router.post("/{request_id}/submit", response_model=OrganizationRequestDetail)
 async def submit_organization_request(
     request_id: int, request: Request
@@ -314,6 +405,24 @@ async def pending_organization_requests() -> list[OrganizationRequestDetail]:
                 .where(
                     ReimbursementRequest.org_id == actor.org_id,
                     ReimbursementRequest.status == RequestStatus.SUBMITTED,
+                )
+                .order_by(ReimbursementRequest.created_at, ReimbursementRequest.id)
+            )
+        )
+    return [await request_detail(request_id) for request_id in request_ids]
+
+
+@router.get("/approved", response_model=list[OrganizationRequestDetail])
+async def approved_organization_requests() -> list[OrganizationRequestDetail]:
+    """List admin-visible requests awaiting the manual payroll CSV export."""
+    actor = await development_organization_actor(UserRole.ADMIN)
+    async with session_factory()() as session:
+        request_ids = list(
+            await session.scalars(
+                select(ReimbursementRequest.id)
+                .where(
+                    ReimbursementRequest.org_id == actor.org_id,
+                    ReimbursementRequest.status == RequestStatus.APPROVED,
                 )
                 .order_by(ReimbursementRequest.created_at, ReimbursementRequest.id)
             )

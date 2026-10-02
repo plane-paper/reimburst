@@ -150,9 +150,12 @@ class Payout(Base):
     __tablename__ = "payouts"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    request_id: Mapped[int] = mapped_column(ForeignKey("reimbursement_requests.id"))
+    request_id: Mapped[int] = mapped_column(ForeignKey("reimbursement_requests.id"), unique=True)
     provider: Mapped[str] = mapped_column(String(50))
     idempotency_key: Mapped[str] = mapped_column(String(255), unique=True)
+    employee_email: Mapped[str] = mapped_column(String(320))
+    amount_cents: Mapped[int] = mapped_column()
+    currency: Mapped[str] = mapped_column(String(3))
     status: Mapped[PayoutStatus] = mapped_column(
         Enum(PayoutStatus, name="payout_status", native_enum=True),
         default=PayoutStatus.PENDING,

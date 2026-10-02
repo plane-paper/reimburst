@@ -1102,6 +1102,42 @@
         }
       }
     },
+    "/organization/requests/{request_id}/payout.csv": {
+      "post": {
+        "tags": [
+          "organization requests"
+        ],
+        "summary": "Export Csv Payout",
+        "description": "Dispatch an approved request through the manual CSV payroll fallback.\n\nA request owns one deterministic key and one payout row. Repeating this\nendpoint returns the same frozen CSV row, rather than creating a second\npayable export or repeating the `approved -> paid` transition.",
+        "operationId": "export_csv_payout_organization_requests__request_id__payout_csv_post",
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Request Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/organization/requests/{request_id}/submit": {
       "post": {
         "tags": [
@@ -1205,6 +1241,32 @@
                   },
                   "type": "array",
                   "title": "Response Pending Organization Requests Organization Requests Pending Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organization/requests/approved": {
+      "get": {
+        "tags": [
+          "organization requests"
+        ],
+        "summary": "Approved Organization Requests",
+        "description": "List admin-visible requests awaiting the manual payroll CSV export.",
+        "operationId": "approved_organization_requests_organization_requests_approved_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OrganizationRequestDetail"
+                  },
+                  "type": "array",
+                  "title": "Response Approved Organization Requests Organization Requests Approved Get"
                 }
               }
             }

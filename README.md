@@ -117,5 +117,18 @@ the updated API.
 
 The portal’s protected organization receipt previews and personal-spending CSV
 exports are fetched with the active bearer token. A persistent account menu
-includes sign-out, and unexpected page failures provide a retry screen. P6 adds
-payout dispatch.
+includes sign-out, and unexpected page failures provide a retry screen.
+
+## Payroll CSV fallback (P6)
+
+An organization admin can select an approved request from the organization
+workspace and choose **Export payroll CSV and mark paid**. This calls
+`POST /organization/requests/{id}/payout.csv`, downloads one manual-payroll
+row, and transitions the request from `approved` to `paid`. The row contains
+the employee email, integer `amount_cents`, currency, request ID, and its
+idempotency key.
+
+Each request has exactly one payout row and a deterministic key of the form
+`csv:payout:{request_id}`. Repeating the endpoint returns the same frozen CSV
+row and does not create another payout or another workflow transition. Apply
+the latest Alembic migration before enabling exports.
