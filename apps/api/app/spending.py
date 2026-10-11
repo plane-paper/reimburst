@@ -6,6 +6,7 @@ from typing import Literal, cast
 
 from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel
+from shared.csv import safe_csv_cell
 from shared.models import Category, LineItem, Receipt
 from sqlalchemy import Select, select
 
@@ -194,14 +195,14 @@ async def export_spending_csv(
     for item in items:
         writer.writerow(
             [
-                item.receipt_id,
-                item.line_item_id,
-                item.receipt_date.isoformat() if item.receipt_date else "",
-                item.merchant or "",
-                item.description,
-                item.category or "",
-                item.amount_cents,
-                item.currency or "",
+                safe_csv_cell(item.receipt_id),
+                safe_csv_cell(item.line_item_id),
+                safe_csv_cell(item.receipt_date.isoformat() if item.receipt_date else ""),
+                safe_csv_cell(item.merchant or ""),
+                safe_csv_cell(item.description),
+                safe_csv_cell(item.category or ""),
+                safe_csv_cell(item.amount_cents),
+                safe_csv_cell(item.currency or ""),
             ]
         )
     return Response(

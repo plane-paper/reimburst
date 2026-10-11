@@ -2,9 +2,10 @@ import asyncio
 from tempfile import SpooledTemporaryFile
 from typing import BinaryIO, cast
 
+import pytest
 from app import receipts
 from app.main import app
-from fastapi import UploadFile
+from fastapi import HTTPException, UploadFile
 from shared.enums import ExtractionStatus, UserRole
 from shared.models import Receipt, User
 from starlette.datastructures import Headers
@@ -96,7 +97,7 @@ def test_upload_persists_pending_receipt_and_enqueues_extraction(monkeypatch) ->
         async def run() -> None:
             request = Request({"type": "http", "app": app, "headers": []})
             upload_buffer = SpooledTemporaryFile()
-            upload_buffer.write(b"receipt bytes")
+            upload_buffer.write(b"\x89PNG\r\n\x1a\nreceipt bytes")
             upload_buffer.seek(0)
             image = UploadFile(
                 file=cast(BinaryIO, upload_buffer),
@@ -153,7 +154,7 @@ def test_organization_upload_assigns_receipt_to_development_employee(monkeypatch
         async def run() -> None:
             request = Request({"type": "http", "app": app, "headers": []})
             upload_buffer = SpooledTemporaryFile()
-            upload_buffer.write(b"organization receipt bytes")
+            upload_buffer.write(b"\xff\xd8\xfforganization receipt bytes")
             upload_buffer.seek(0)
             image = UploadFile(
                 file=cast(BinaryIO, upload_buffer),
@@ -169,3 +170,34 @@ def test_organization_upload_assigns_receipt_to_development_employee(monkeypatch
     finally:
         del app.state.object_storage
         del app.state.job_queue
+
+
+def test_upload_rejects_content_that_does_not_match_its_declared_image_type(monkeypatch) -> None:
+    session = FakeSession()
+    monkeypatch.setattr(receipts, "session_factory", lambda: lambda: session)
+
+    async def development_owner_id() -> int:
+        return session.owner.id
+
+    monkeypatch.setattr(receipts, "development_owner_id", development_owner_id)
+    storage = FakeStorage()
+    app.state.object_storage = storage
+    try:
+        async def run() -> None:
+            request = Request({"type": "http", "app": app, "headers": []})
+            upload_buffer = SpooledTemporaryFile()
+            upload_buffer.write(b"not actually an image")
+            upload_buffer.seek(0)
+            image = UploadFile(
+                file=cast(BinaryIO, upload_buffer),
+                filename="receipt.png",
+                headers=Headers({"content-type": "image/png"}),
+            )
+            with pytest.raises(HTTPException, match="does not match") as error:
+                await receipts.create_receipt(request, image)
+            assert error.value.status_code == 422
+            assert not storage.objects
+
+        asyncio.run(run())
+    finally:
+        del app.state.object_storage

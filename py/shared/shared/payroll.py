@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from io import StringIO
 from typing import Protocol
 
+from shared.csv import safe_csv_cell
+
 
 @dataclass(frozen=True)
 class PayoutExport:
@@ -39,11 +41,11 @@ class CsvPayrollProvider:
         for payout in payouts:
             writer.writerow(
                 [
-                    payout.request_id,
-                    payout.employee_email,
-                    payout.amount_cents,
-                    payout.currency,
-                    payout.idempotency_key,
+                    safe_csv_cell(payout.request_id),
+                    safe_csv_cell(payout.employee_email),
+                    safe_csv_cell(payout.amount_cents),
+                    safe_csv_cell(payout.currency),
+                    safe_csv_cell(payout.idempotency_key),
                 ]
             )
         return output.getvalue().encode()
