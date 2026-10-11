@@ -91,6 +91,27 @@ def test_confirmation_requires_explicit_mismatch_acknowledgement(monkeypatch) ->
     asyncio.run(run())
 
 
+def test_confirmation_waits_for_categorization(monkeypatch) -> None:
+    session = ConfirmationSession()
+    session.receipt.categorization_status = ExtractionStatus.PROCESSING
+    monkeypatch.setattr(receipts, "session_factory", lambda: lambda: session)
+    confirmation = receipts.ReceiptConfirmation(
+        line_items=[
+            receipts.ConfirmedLineItem(
+                id=3, description="Lunch", amount_cents=1200, category="food"
+            )
+        ]
+    )
+
+    async def run() -> None:
+        with pytest.raises(HTTPException, match="categorization has not completed") as error:
+            await receipts.confirm_receipt_for_owner(2, confirmation, 1)
+        assert error.value.status_code == 409
+        assert not session.committed
+
+    asyncio.run(run())
+
+
 def test_confirmation_persists_reviewed_items_after_acknowledgement(monkeypatch) -> None:
     session = ConfirmationSession()
     monkeypatch.setattr(receipts, "session_factory", lambda: lambda: session)

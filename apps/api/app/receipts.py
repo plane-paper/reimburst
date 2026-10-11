@@ -16,6 +16,33 @@ from app.ownership import development_organization_actor, development_owner_id, 
 
 router = APIRouter(prefix="/receipts", tags=["receipts"])
 organization_router = APIRouter(prefix="/organization/receipts", tags=["organization receipts"])
+MAX_IMAGE_BYTES = 10 * 1024 * 1024
+
+
+async def read_receipt_image(image: UploadFile) -> bytes:
+    """Read a bounded upload and verify it matches its declared image format."""
+    chunks: list[bytes] = []
+    size = 0
+    while chunk := await image.read(64 * 1024):
+        size += len(chunk)
+        if size > MAX_IMAGE_BYTES:
+            raise HTTPException(status_code=413, detail="Receipt image must be 10 MB or smaller")
+        chunks.append(chunk)
+    content = b"".join(chunks)
+    if not content:
+        raise HTTPException(status_code=422, detail="Receipt image is empty")
+    return content
+
+
+def matches_image_content_type(content: bytes, content_type: str) -> bool:
+    signatures = {
+        "image/jpeg": content.startswith(b"\xff\xd8\xff"),
+        "image/png": content.startswith(b"\x89PNG\r\n\x1a\n"),
+        "image/webp": len(content) >= 12
+        and content.startswith(b"RIFF")
+        and content[8:12] == b"WEBP",
+    }
+    return signatures[content_type]
 
 
 class ReceiptCreated(BaseModel):
@@ -67,11 +94,11 @@ async def create_receipt_for_owner(
     if content_type not in {"image/jpeg", "image/png", "image/webp"}:
         raise HTTPException(status_code=415, detail="Upload a JPEG, PNG, or WebP receipt image")
 
-    content = await image.read()
-    if not content:
-        raise HTTPException(status_code=422, detail="Receipt image is empty")
-    if len(content) > 10 * 1024 * 1024:
-        raise HTTPException(status_code=413, detail="Receipt image must be 10 MB or smaller")
+    content = await read_receipt_image(image)
+    if not matches_image_content_type(content, content_type):
+        raise HTTPException(
+            status_code=422, detail="Receipt content does not match its declared image type"
+        )
 
     suffix = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}[content_type]
     image_key = f"receipts/{uuid.uuid4()}{suffix}"
@@ -303,6 +330,11 @@ async def confirm_receipt_for_owner(
             raise HTTPException(status_code=404, detail="Receipt not found")
         if receipt.extraction_status is not ExtractionStatus.SUCCEEDED:
             raise HTTPException(status_code=409, detail="Receipt extraction has not completed")
+        if receipt.categorization_status not in {
+            ExtractionStatus.SUCCEEDED,
+            ExtractionStatus.FAILED,
+        }:
+            raise HTTPException(status_code=409, detail="Receipt categorization has not completed")
         if receipt.confirmed_at is not None:
             raise HTTPException(status_code=409, detail="Receipt has already been confirmed")
         if receipt.total_cents is None:
