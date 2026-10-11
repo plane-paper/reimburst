@@ -1,4 +1,6 @@
 import os
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,6 +9,7 @@ from starlette.middleware.base import RequestResponseEndpoint
 
 from app.auth import authenticate_request, clear_principal
 from app.auth import router as auth_router
+from app.database import dispose_engine
 from app.notifications import router as notifications_router
 from app.organization import router as organization_router
 from app.outbound import router as outbound_router
@@ -14,7 +17,14 @@ from app.receipts import organization_router as organization_receipts_router
 from app.receipts import router as receipts_router
 from app.spending import router as spending_router
 
-app = FastAPI(title="Reimburse API")
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    yield
+    await dispose_engine()
+
+
+app = FastAPI(title="Reimburse API", lifespan=lifespan)
 
 
 @app.middleware("http")
